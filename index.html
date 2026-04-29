@@ -126,9 +126,6 @@
             vertical-align: middle;
         }
 
-        .team1-bg { background: rgba(0,113,227,0.1); }
-        .team2-bg { background: rgba(175,82,222,0.1); }
-        
         .remaining-targets {
             font-size: 0.9rem;
             color: var(--primary);
@@ -154,6 +151,22 @@
         .success-btn {
             background: var(--hit);
         }
+
+        .room-info {
+            background: var(--primary);
+            color: white;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .total-shots {
+            font-size: 0.8rem;
+            color: var(--text);
+            opacity: 0.7;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
@@ -162,61 +175,64 @@
     <div id="roleScreen" class="screen active">
         <h1>Battleship Tournament</h1>
         <div class="card">
-            <label style="font-size: 0.8rem; font-weight: 600;">ROOM CODE</label>
-            <input type="text" id="roomCode" placeholder="Ej: CLASE123">
+            <div class="room-info">
+                Sala: BATALLA2026
+            </div>
             
-            <button onclick="setRole('team')" style="background:#5856d6">Join as Team</button>
+            <button onclick="setRole('team')" style="background:#5856d6">Unirse como Equipo</button>
 
             <div class="admin-section">
-                <label style="font-size: 0.8rem; font-weight: 600;">ADMIN ACCESS</label>
-                <input type="password" id="adminKey" placeholder="Master Key">
-                <button onclick="setRole('admin')" style="background:var(--text)">Access as Admin</button>
+                <label style="font-size: 0.8rem; font-weight: 600;">ACCESO ADMINISTRADOR</label>
+                <input type="password" id="adminKey" placeholder="Clave Maestra">
+                <button onclick="setRole('admin')" style="background:var(--text)">Acceder como Admin</button>
             </div>
         </div>
     </div>
 
     <div id="teamScreen" class="screen">
-        <h2 id="displayRoom">Room: --</h2>
+        <div class="room-info" id="displayRoom">Sala: BATALLA2026</div>
         <div class="card">
-            <input type="text" id="teamNameInput" placeholder="Team Name">
-            <button onclick="registerTeam()">Register Team</button>
-            <p id="waitMsg" style="display:none; color: var(--hit); font-weight: 600;">Registered! Waiting for admin to start tournament.</p>
+            <input type="text" id="teamNameInput" placeholder="Nombre del Equipo">
+            <button onclick="registerTeam()">Registrar Equipo</button>
+            <p id="waitMsg" style="display:none; color: var(--hit); font-weight: 600;">Registrado! Esperando a que el Admin inicie el torneo.</p>
         </div>
     </div>
 
     <div id="adminScreen" class="screen">
-        <h1>Admin Panel</h1>
+        <div class="room-info">Sala: BATALLA2026 - Panel Admin</div>
         <div class="card">
             <div class="tournament-table">
-                <h3>Tournament Bracket</h3>
-                <div id="tournamentBracket">No active tournament</div>
+                <h3>Tabla del Torneo</h3>
+                <div id="tournamentBracket">No hay torneo activo</div>
             </div>
-            <p style="font-weight: 600; margin-top: 20px;">Registered Teams:</p>
+            <p style="font-weight: 600; margin-top: 20px;">Equipos Registrados:</p>
             <div id="teamList"></div>
             <div class="control-buttons">
-                <button id="startBtn" onclick="startTournament()" style="display:none; background: var(--hit)">Start Tournament</button>
-                <button id="resetBtn" onclick="resetTournament()" style="display:none; background: var(--miss)">Reset All</button>
+                <button id="startBtn" onclick="startTournament()" style="display:none; background: var(--hit)">Iniciar Torneo</button>
+                <button id="resetBtn" onclick="resetTournament()" style="display:none; background: var(--miss)">Reiniciar Todo</button>
             </div>
-            <button id="newGameBtn" onclick="forceNewGame()" style="display:none; background: var(--primary)">Force New Match</button>
+            <button id="newGameBtn" onclick="forceNewGame()" style="display:none; background: var(--primary)">Forzar Nueva Partida</button>
         </div>
     </div>
 
     <div id="gameScreen" class="screen">
+        <div class="room-info">Sala: BATALLA2026 - En Juego</div>
         <div class="card" id="gameCard">
             <div class="vs-container">
                 <div id="t1Display">
                     <div id="name1" style="font-weight: 700;">--</div>
                     <div class="score-box" id="score1">0</div>
-                    <div id="targets1" class="remaining-targets">Targets: 5</div>
+                    <div id="targets1" class="remaining-targets">Objetivos: 5</div>
                 </div>
                 <div style="font-weight: 900; opacity: 0.3;">VS</div>
                 <div id="t2Display">
                     <div id="name2" style="font-weight: 700;">--</div>
                     <div class="score-box" id="score2">0</div>
-                    <div id="targets2" class="remaining-targets">Targets: 5</div>
+                    <div id="targets2" class="remaining-targets">Objetivos: 5</div>
                 </div>
             </div>
-            <div id="turnIndicator" style="font-weight: 700; padding: 10px; border-radius: 10px;">Waiting for move...</div>
+            <div id="totalShots" class="total-shots">Disparos totales: 0 / 5</div>
+            <div id="turnIndicator" style="font-weight: 700; padding: 10px; border-radius: 10px;">Esperando movimiento...</div>
         </div>
         <div class="grid" id="gameGrid"></div>
     </div>
@@ -224,6 +240,7 @@
 
 <script>
     const MASTER_KEY = "ZAID2026";
+    const DEFAULT_ROOM = "BATALLA2026";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCaAkVBDYuqwOpSfoJjkXN6trR5NwvSNn0",
@@ -239,46 +256,44 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     
-    let room = "";
+    let room = DEFAULT_ROOM;
     let myRole = "";
     let teamId = "";
     let currentGame = null;
-    let currentRoomRef = null;
     
     const teamColors = ["#0071e3", "#af52de", "#ff9500", "#ff2d55", "#5856d6", "#34c759", "#ffcc00", "#5ac8fa"];
     
-    function setRole(role) {
-        room = document.getElementById('roomCode').value.toUpperCase();
-        if(!room) return alert("Please enter a room code");
-
-        if(role === 'admin') {
-            const pass = document.getElementById('adminKey').value;
-            if(pass !== MASTER_KEY) return alert("Invalid admin key");
-            initializeRoom();
-        }
-
-        myRole = role;
-        showScreen(role === 'admin' ? 'adminScreen' : 'teamScreen');
-        if(role === 'team') document.getElementById('displayRoom').innerText = "Room: " + room;
-        if(role === 'admin') loadTournamentHistory();
-        listenToRoom();
-    }
-
     function initializeRoom() {
         db.ref(`rooms/${room}`).once('value', snap => {
             if(!snap.exists()) {
                 db.ref(`rooms/${room}`).set({
                     initialized: true,
-                    createdAt: Date.now()
+                    createdAt: Date.now(),
+                    roomName: DEFAULT_ROOM
                 });
             }
         });
+    }
+    
+    function setRole(role) {
+        if(role === 'admin') {
+            const pass = document.getElementById('adminKey').value;
+            if(pass !== MASTER_KEY) {
+                alert("Clave de administrador incorrecta");
+                return;
+            }
+        }
+
+        myRole = role;
+        showScreen(role === 'admin' ? 'adminScreen' : 'teamScreen');
+        initializeRoom();
+        listenToRoom();
     }
 
     function registerTeam() {
         const name = document.getElementById('teamNameInput').value;
         if(!name) {
-            alert("Please enter a team name");
+            alert("Por favor ingresa un nombre para el equipo");
             return;
         }
         teamId = 'team_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
@@ -293,10 +308,6 @@
     }
 
     function listenToRoom() {
-        if(currentRoomRef) {
-            Object.values(currentRoomRef).forEach(ref => ref.off());
-        }
-        
         const teamsRef = db.ref(`rooms/${room}/teams`);
         const gameRef = db.ref(`rooms/${room}/game`);
         const tournamentRef = db.ref(`rooms/${room}/tournament`);
@@ -311,7 +322,7 @@
                     const div = document.createElement('div');
                     div.className = "team-item";
                     div.style.background = teamColors[index % teamColors.length];
-                    const status = teams[id].eliminated ? " (ELIMINATED)" : " (ACTIVE)";
+                    const status = teams[id].eliminated ? " (ELIMINADO)" : " (ACTIVO)";
                     div.innerText = teams[id].name + status;
                     list.appendChild(div);
                     index++;
@@ -350,7 +361,7 @@
             const teams = snap.val();
             const activeTeams = Object.keys(teams).filter(id => !teams[id].eliminated);
             if(activeTeams.length < 2) {
-                alert("Need at least 2 active teams");
+                alert("Se necesitan al menos 2 equipos activos");
                 return;
             }
             
@@ -395,7 +406,8 @@
             misses: {},
             ships: ships,
             round: 1,
-            startedAt: Date.now()
+            startedAt: Date.now(),
+            totalShotsMade: 0
         });
     }
 
@@ -409,19 +421,29 @@
         document.getElementById('name2').innerText = game.t2.name;
         document.getElementById('score1').innerText = game.score1 || 0;
         document.getElementById('score2').innerText = game.score2 || 0;
-        document.getElementById('targets1').innerHTML = `Targets left: ${remainingTargets1}`;
-        document.getElementById('targets2').innerHTML = `Targets left: ${remainingTargets2}`;
+        document.getElementById('targets1').innerHTML = `Objetivos restantes: ${remainingTargets1}`;
+        document.getElementById('targets2').innerHTML = `Objetivos restantes: ${remainingTargets2}`;
+        
+        const totalShots = game.totalShotsMade || 0;
+        const totalShotsElement = document.getElementById('totalShots');
+        if(totalShotsElement) {
+            totalShotsElement.innerHTML = `Disparos totales: ${totalShots} / 5`;
+            if(totalShots >= 5) {
+                totalShotsElement.style.color = "var(--hit)";
+                totalShotsElement.style.fontWeight = "bold";
+            }
+        }
         
         const isMyTurn = (teamId === game.turn);
         const turnName = (game.turn === game.t1.id ? game.t1.name : game.t2.name);
         const indicator = document.getElementById('turnIndicator');
         
         if (isMyTurn && myRole === 'team') {
-            indicator.innerText = "YOUR TURN!";
+            indicator.innerText = "TU TURNO!";
             indicator.style.background = "rgba(52,199,89,0.2)";
             indicator.style.color = "var(--hit)";
         } else {
-            indicator.innerText = "TURN: " + turnName.toUpperCase();
+            indicator.innerText = "TURNO DE: " + turnName.toUpperCase();
             indicator.style.background = "rgba(0,113,227,0.1)";
             indicator.style.color = "var(--primary)";
         }
@@ -448,9 +470,9 @@
                     if(isMyTurn && myRole === 'team' && game.status === 'playing' && !alreadyPlayed) {
                         sendMove(index, game); 
                     } else if(alreadyPlayed) {
-                        alert("Already shot here");
+                        alert("Ya disparaste aqui");
                     } else if(!isMyTurn && myRole === 'team') {
-                        alert("Not your turn");
+                        alert("No es tu turno");
                     }
                 };
             })(i);
@@ -467,35 +489,69 @@
     }
 
     function checkWinner(game) {
-        if(game.score1 >= 5) {
+        const totalShots = game.totalShotsMade || 0;
+        const score1 = game.score1 || 0;
+        const score2 = game.score2 || 0;
+        
+        // Verificar si alguien llegó a 5 objetivos
+        if(score1 >= 5) {
             declareWinner(game.t1.id, game.t2.id, game);
-        } else if(game.score2 >= 5) {
+        } 
+        else if(score2 >= 5) {
             declareWinner(game.t2.id, game.t1.id, game);
+        }
+        // Verificar si se completaron los 5 disparos totales
+        else if(totalShots >= 5) {
+            // Determinar ganador por mayor cantidad de objetivos
+            if(score1 > score2) {
+                declareWinner(game.t1.id, game.t2.id, game);
+            } 
+            else if(score2 > score1) {
+                declareWinner(game.t2.id, game.t1.id, game);
+            }
+            else {
+                // En caso de empate, el equipo que está jugando actualmente pierde? o se hace un desempate
+                // Por ahora, el que hizo el último disparo pierde
+                const lastPlayer = game.lastPlayer;
+                if(lastPlayer === game.t1.id) {
+                    declareWinner(game.t2.id, game.t1.id, game);
+                } else {
+                    declareWinner(game.t1.id, game.t2.id, game);
+                }
+            }
         }
     }
 
     function declareWinner(winnerId, loserId, game) {
+        const winnerName = winnerId === game.t1.id ? game.t1.name : game.t2.name;
+        const loserName = loserId === game.t1.id ? game.t1.name : game.t2.name;
+        const winnerScore = winnerId === game.t1.id ? game.score1 : game.score2;
+        const loserScore = loserId === game.t1.id ? game.score1 : game.score2;
+        
         const updates = {};
         updates[`rooms/${room}/game/status`] = 'finished';
         updates[`rooms/${room}/game/winner`] = winnerId;
         updates[`rooms/${room}/game/loser`] = loserId;
+        updates[`rooms/${room}/game/winnerScore`] = winnerScore;
+        updates[`rooms/${room}/game/loserScore`] = loserScore;
         updates[`rooms/${room}/game/endedAt`] = Date.now();
         
         db.ref().update(updates, () => {
-            showWinnerModal(winnerId === game.t1.id ? game.t1.name : game.t2.name);
+            showWinnerModal(winnerName, winnerScore, loserName, loserScore);
             updateTournamentBracket(winnerId, loserId);
         });
     }
 
-    function showWinnerModal(winnerName) {
+    function showWinnerModal(winnerName, winnerScore, loserName, loserScore) {
         const modal = document.createElement('div');
         modal.className = 'winner-overlay';
         modal.innerHTML = `
             <div class="winner-card">
-                <h1>VICTORY!</h1>
+                <h1>VICTORIA!</h1>
                 <h2>${winnerName}</h2>
-                <p>Has won the battle!</p>
-                <button onclick="closeWinnerModal(this)">Continue</button>
+                <p>Ha ganado la batalla con ${winnerScore} objetivos!</p>
+                <p style="font-size: 0.9rem; opacity: 0.9;">${loserName} logró ${loserScore} objetivos</p>
+                <button onclick="closeWinnerModal(this)">Continuar</button>
             </div>
         `;
         document.body.appendChild(modal);
@@ -532,7 +588,8 @@
                     if(activeTeams.length === 1) {
                         tournament.finalWinner = activeTeams[0];
                         db.ref(`rooms/${room}/tournament`).set(tournament);
-                        showWinnerModal(teams[activeTeams[0]].name);
+                        const finalWinnerName = teams[activeTeams[0]].name;
+                        showWinnerModal(finalWinnerName, 0, "", 0);
                         document.getElementById('resetBtn').style.display = 'block';
                         document.getElementById('newGameBtn').style.display = 'none';
                     } else if(activeTeams.length >= 2 && tournament.winners.length >= 2) {
@@ -557,7 +614,7 @@
         if(myRole === 'team') {
             setTimeout(() => {
                 showScreen('teamScreen');
-                alert("Game finished. Waiting for next round...");
+                alert("Juego terminado. Esperando siguiente ronda...");
             }, 3000);
         }
     }
@@ -573,7 +630,7 @@
                 startMatch(team1, team2, teams);
                 document.getElementById('newGameBtn').style.display = 'none';
             } else {
-                alert("Need at least 2 active teams to start a new match");
+                alert("Se necesitan al menos 2 equipos activos para iniciar una nueva partida");
             }
         });
     }
@@ -585,13 +642,13 @@
         db.ref(`rooms/${room}/tournament`).once('value', snap => {
             const tournament = snap.val();
             if(!tournament || !tournament.rounds) {
-                bracketDiv.innerHTML = '<p>No tournament in progress</p>';
+                bracketDiv.innerHTML = '<p>No hay torneo en curso</p>';
                 return;
             }
             
             let html = '';
             tournament.rounds.forEach((round, roundIndex) => {
-                html += `<div class="round"><strong>Round ${roundIndex + 1}</strong>`;
+                html += `<div class="round"><strong>Ronda ${roundIndex + 1}</strong>`;
                 round.forEach(match => {
                     const winner = match.winner;
                     html += `<div class="match">
@@ -613,7 +670,7 @@
                 db.ref(`rooms/${room}/teams/${tournament.finalWinner}`).once('value', snap => {
                     const winnerTeam = snap.val();
                     html += `<div class="round" style="background: linear-gradient(135deg, #ffd700, #ff8c00); color: white;">
-                        <strong>CHAMPION: ${winnerTeam?.name || '???'}</strong>
+                        <strong>CAMPEON: ${winnerTeam?.name || '???'}</strong>
                     </div>`;
                     bracketDiv.innerHTML = html;
                 });
@@ -624,34 +681,34 @@
     }
 
     function resetTournament() {
-        if(confirm("WARNING: This will delete ALL teams and tournament progress. Are you sure?")) {
+        if(confirm("ADVERTENCIA: Esto eliminara TODOS los equipos y el progreso del torneo. Estas seguro?")) {
             db.ref(`rooms/${room}`).remove().then(() => {
                 setTimeout(() => {
                     initializeRoom();
-                    tournamentData = { rounds: [], winners: [], finalWinner: null };
                     document.getElementById('resetBtn').style.display = 'none';
                     document.getElementById('startBtn').style.display = 'none';
                     document.getElementById('newGameBtn').style.display = 'none';
-                    document.getElementById('tournamentBracket').innerHTML = '<p>No active tournament</p>';
+                    document.getElementById('tournamentBracket').innerHTML = '<p>No hay torneo activo</p>';
                     document.getElementById('teamList').innerHTML = '';
-                    alert("Tournament has been reset completely");
+                    alert("El torneo ha sido reiniciado completamente");
                 }, 500);
             }).catch(error => {
-                console.error("Reset error:", error);
-                alert("Error resetting tournament. Please try again.");
+                console.error("Error al reiniciar:", error);
+                alert("Error al reiniciar el torneo. Por favor intenta de nuevo.");
             });
         }
     }
 
     function sendMove(idx, game) {
         if ((game.hits && game.hits[idx]) || (game.misses && game.misses[idx])) {
-            alert("Already shot here");
+            alert("Ya disparaste aqui");
             return;
         }
         
         const isHit = game.ships.includes(idx);
         const updates = {};
         const path = `rooms/${room}/game/`;
+        const newTotalShots = (game.totalShotsMade || 0) + 1;
         
         if(isHit) {
             updates[path + 'hits/' + idx] = true;
@@ -661,6 +718,8 @@
             updates[path + 'misses/' + idx] = true;
         }
         
+        updates[path + 'totalShotsMade'] = newTotalShots;
+        updates[path + 'lastPlayer'] = game.turn;
         updates[path + 'turn'] = (game.turn === game.t1.id ? game.t2.id : game.t1.id);
         
         db.ref().update(updates);
@@ -674,6 +733,8 @@
 
     window.closeWinnerModal = closeWinnerModal;
     window.forceNewGame = forceNewGame;
+    
+    initializeRoom();
 </script>
 </body>
 </html>
