@@ -3,18 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Battleship - Secure Tournament</title>
+    <title>Pentesting Simulator - Surface Mapper</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
         :root {
-            --bg: #f5f5f7;
-            --card: #ffffff;
+            /* Paleta Dark Mode inspirada en las diapositivas */
+            --bg: #0b0e14;
+            --card: #1c222d;
             --primary: #0071e3;
             --hit: #34c759;
             --miss: #ff3b30;
-            --text: #1d1d1f;
+            --text: #e2e8f0;
+            --text-muted: #8b9bb4;
             --winner: #ffd700;
+            --border: #2d3748;
         }
 
         body {
@@ -27,265 +30,135 @@
             padding: 20px;
         }
 
-        .container { width: 100%; max-width: 500px; text-align: center; }
+        .container { width: 100%; max-width: 550px; text-align: center; }
         .screen { display: none; flex-direction: column; gap: 20px; }
         .active { display: flex; }
 
-        .card { background: var(--card); padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        .card { background: var(--card); padding: 25px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid var(--border); }
         
-        input { padding: 12px; border-radius: 10px; border: 1px solid #d2d2d7; font-size: 1rem; width: 85%; margin: 8px auto; display: block; }
-        button { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 12px; font-weight: 600; cursor: pointer; width: 92%; margin: 5px auto; transition: transform 0.2s; }
-        button:hover { transform: scale(0.98); }
-        button:active { transform: scale(0.95); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        h1 { color: #ffffff; font-weight: 800; letter-spacing: -0.5px; }
         
-        .admin-section { border-top: 1px solid #d2d2d7; margin-top: 20px; padding-top: 20px; }
-        .team-item { padding: 12px; border-radius: 10px; margin-bottom: 8px; color: white; font-weight: 700; text-align: center; }
+        input { padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: #0b0e14; color: white; font-size: 1rem; width: 85%; margin: 8px auto; display: block; }
+        input:focus { outline: none; border-color: var(--primary); }
+        
+        button { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 92%; margin: 5px auto; transition: 0.2s; }
+        button:hover { filter: brightness(1.1); }
+        button:active { transform: scale(0.98); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .admin-section { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 20px; }
+        .team-item { padding: 12px; border-radius: 8px; margin-bottom: 8px; color: white; font-weight: 700; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
 
         .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 20px; }
-        .cell { aspect-ratio: 1/1; background: #e5e5ea; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; cursor: pointer; transition: 0.3s; font-weight: bold; color: #8e8e93; }
-        .cell.hit { background: var(--hit) !important; color: white; transform: scale(0.95); }
-        .cell.miss { background: var(--miss) !important; color: white; }
-        .cell.disabled { cursor: not-allowed; opacity: 0.6; }
+        .cell { aspect-ratio: 1/1; background: #2d3748; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; cursor: pointer; transition: 0.3s; font-weight: bold; color: var(--text-muted); border: 1px solid #4a5568; }
+        .cell:hover { background: #4a5568; color: white; }
+        .cell.hit { background: var(--hit) !important; color: white; transform: scale(0.95); border-color: var(--hit); }
+        .cell.miss { background: var(--miss) !important; color: white; border-color: var(--miss); opacity: 0.5; }
+        .cell.disabled { cursor: not-allowed; }
 
-        .vs-container { display: flex; justify-content: space-around; align-items: center; margin: 15px 0; }
-        .score-box { font-size: 2.5rem; font-weight: 800; }
+        .vs-container { display: flex; justify-content: space-around; align-items: center; margin: 15px 0; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; }
+        .score-box { font-size: 2.5rem; font-weight: 800; color: #ffffff; }
 
-        .winner-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.95);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            animation: fadeIn 0.5s;
-        }
-        .winner-card {
-            background: linear-gradient(135deg, var(--winner), #ff8c00);
-            padding: 40px;
-            border-radius: 30px;
-            text-align: center;
-            color: white;
-            animation: bounce 0.5s;
-        }
-        .winner-card h1 { font-size: 3rem; margin: 0; }
-        .winner-card button {
-            background: white;
-            color: black;
-            margin-top: 20px;
-            width: auto;
-            padding: 10px 30px;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        @keyframes bounce {
-            0% { transform: scale(0.3); }
-            100% { transform: scale(1); }
-        }
-
-        .tournament-table {
-            background: white;
-            border-radius: 15px;
-            padding: 15px;
-            margin-top: 20px;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        .tournament-table h3 { margin: 0 0 10px 0; }
-        .round {
-            border-left: 3px solid var(--primary);
-            padding: 10px;
-            margin: 10px 0;
-            background: #f8f9fa;
-            border-radius: 10px;
-        }
-        .match {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px;
-            margin: 5px 0;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
+        .winner-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(11,14,20,0.95); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .winner-card { background: linear-gradient(135deg, var(--card), #2d3748); padding: 40px; border-radius: 15px; text-align: center; color: white; border: 1px solid var(--hit); box-shadow: 0 0 40px rgba(52,199,89,0.2); }
+        
+        .tournament-table { background: rgba(0,0,0,0.2); border-radius: 10px; padding: 15px; margin-top: 20px; border: 1px solid var(--border); }
+        .round { border-left: 3px solid var(--primary); padding: 10px; margin: 10px 0; background: rgba(255,255,255,0.05); border-radius: 0 8px 8px 0; }
+        .match { display: flex; justify-content: space-between; padding: 10px; margin: 5px 0; background: var(--card); border-radius: 6px; border: 1px solid var(--border); }
+        
         .winner-team { color: var(--hit); font-weight: bold; }
-        .loser-team { color: var(--miss); text-decoration: line-through; }
-        .team-color-badge {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            margin-right: 8px;
-            vertical-align: middle;
-        }
+        .loser-team { color: var(--miss); text-decoration: line-through; opacity: 0.6; }
 
-        .remaining-targets {
-            font-size: 0.9rem;
-            color: var(--primary);
-            font-weight: 600;
-            margin-top: 10px;
-        }
-
-        .control-buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-            flex-wrap: wrap;
-        }
-
-        .control-buttons button {
-            flex: 1;
-            margin: 0;
-            min-width: 120px;
-        }
-
-        .room-info {
-            background: var(--primary);
-            color: white;
-            padding: 10px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            font-weight: bold;
-        }
-
-        .total-shots {
-            font-size: 0.8rem;
-            color: var(--text);
-            opacity: 0.7;
-            margin-top: 5px;
-        }
-
-        .registered-message {
-            background: #e8f5e9;
-            color: #2e7d32;
-            padding: 10px;
-            border-radius: 10px;
-            margin-top: 10px;
-            font-weight: bold;
-        }
-
-        .selection-box {
-            margin: 15px 0;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
-        }
-
-        .selection-box select {
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid #d2d2d7;
-            font-size: 1rem;
-            width: 90%;
-            margin: 10px 0;
-        }
-
-        .force-reset {
-            background: #ff3b30;
-            color: white;
-            border: none;
-            margin-top: 10px;
-        }
+        .room-info { background: #2d3748; color: white; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; border-left: 4px solid var(--primary); text-align: left; }
+        
+        /* Estilos del Cuestionario de Reconocimiento */
+        #reconOverlay { background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid var(--primary); margin-bottom: 20px; box-shadow: 0 0 20px rgba(0,113,227,0.1); }
+        .option-btn { background: #2d3748; color: white; border: 1px solid #4a5568; padding: 12px; margin: 5px 0; width: 100%; text-align: left; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+        .option-btn:hover { background: var(--primary); border-color: var(--primary); }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div id="roleScreen" class="screen active">
-        <h1>Battleship Tournament</h1>
+        <h1>Simulador Pentesting</h1>
         <div class="card">
-            <div class="room-info">
-                Sala: BATALLA2026
-            </div>
-            
-            <button onclick="setRole('team')" style="background:#5856d6">Unirse como Equipo</button>
-
+            <div class="room-info">Auditoría Autorizada: EXPO2026</div>
+            <button onclick="setRole('team')" style="background:#4a5568; color: white;">Unirse como Auditor (Equipo)</button>
             <div class="admin-section">
-                <label style="font-size: 0.8rem; font-weight: 600;">ACCESO ADMINISTRADOR</label>
-                <input type="password" id="adminKey" placeholder="Clave Maestra">
-                <button onclick="setRole('admin')" style="background:var(--text)">Acceder como Admin</button>
-                <button onclick="forceHardReset()" class="force-reset" style="background:#ff3b30">RESET FORZADO (Limpiar Todo)</button>
+                <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">CENTRO DE COMANDO (ADMIN)</label>
+                <input type="password" id="adminKey" placeholder="Clave de Administrador">
+                <button onclick="setRole('admin')" style="background:var(--primary)">Acceder al Servidor</button>
+                <button onclick="forceHardReset()" style="background:transparent; border: 1px solid var(--miss); color: var(--miss); margin-top:15px;">Purgar Base de Datos</button>
             </div>
         </div>
     </div>
 
     <div id="teamScreen" class="screen">
-        <div class="room-info" id="displayRoom">Sala: BATALLA2026</div>
+        <div class="room-info">Identificación de Equipo</div>
         <div class="card">
-            <input type="text" id="teamNameInput" placeholder="Nombre del Equipo">
-            <button id="registerBtn" onclick="registerTeam()">Registrar Equipo</button>
-            <div id="registeredMessage" style="display:none;" class="registered-message">
-                Equipo registrado exitosamente!
-                <p style="font-size:0.8rem; margin-top:5px;">Esperando a que el Admin inicie el torneo.</p>
+            <input type="text" id="teamNameInput" placeholder="Nombre del Escuadrón">
+            <button id="registerBtn" onclick="registerTeam()">Registrar en la Red</button>
+            <div id="registeredMessage" style="display:none; color: var(--hit); font-weight: bold;">
+                Conexión establecida. Esperando despliegue del administrador...
             </div>
         </div>
     </div>
 
     <div id="adminScreen" class="screen">
-        <div class="room-info">Sala: BATALLA2026 - Panel Admin</div>
+        <div class="room-info">Dashboard de Administrador</div>
         <div class="card">
             <div class="tournament-table">
-                <h3>Tabla del Torneo</h3>
-                <div id="tournamentBracket">No hay torneo activo</div>
+                <h3 style="margin-top:0;">Fases de Auditoría (Torneo)</h3>
+                <div id="tournamentBracket">A la espera de auditores...</div>
             </div>
-            <p style="font-weight: 600; margin-top: 20px;">Equipos Registrados:</p>
+            <p style="font-weight: 600; margin-top: 20px; color: var(--text-muted);">Equipos en la red:</p>
             <div id="teamList"></div>
             
-            <div class="selection-box">
-                <label style="font-weight: 600;">Seleccionar Equipos para Partida:</label>
-                <select id="teamSelect1">
-                    <option value="">Seleccionar Equipo 1</option>
-                </select>
-                <select id="teamSelect2">
-                    <option value="">Seleccionar Equipo 2</option>
-                </select>
-                <button onclick="startSelectedMatch()" style="background: var(--primary)">Iniciar Partida Seleccionada</button>
-            </div>
-            
-            <div class="control-buttons">
-                <button id="startBtn" onclick="startRandomTournament()" style="display:none; background: var(--hit)">Iniciar Torneo Aleatorio</button>
-                <button id="resetGameBtn" onclick="resetCurrentGame()" style="display:none; background: var(--primary)">Reiniciar Partida</button>
-                <button id="resetAllBtn" onclick="resetTournament()" style="display:none; background: var(--miss)">Reiniciar Todo</button>
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                <button id="startBtn" onclick="startRandomTournament()" style="display:none; background: var(--hit)">Generar Árbol de Ataque (Torneo)</button>
+                <button id="resetAllBtn" onclick="resetTournament()" style="display:none; background: transparent; border: 1px solid var(--miss); color: var(--miss);">Cancelar Operación</button>
             </div>
         </div>
     </div>
 
     <div id="gameScreen" class="screen">
-        <div class="room-info">Sala: BATALLA2026 - En Juego</div>
+        <div class="room-info" id="matchHeader">Mapeando Superficie de Ataque</div>
+        
         <div class="card" id="gameCard">
             <div class="vs-container">
                 <div id="t1Display">
                     <div id="name1" style="font-weight: 700;">--</div>
                     <div class="score-box" id="score1">0</div>
-                    <div id="targets1" class="remaining-targets">Objetivos: 5</div>
+                    <div style="font-size: 0.7rem; color: var(--hit);">Vulnerabilidades</div>
                 </div>
-                <div style="font-weight: 900; opacity: 0.3;">VS</div>
+                <div style="font-weight: 900; opacity: 0.2; font-size: 2rem;">VS</div>
                 <div id="t2Display">
                     <div id="name2" style="font-weight: 700;">--</div>
                     <div class="score-box" id="score2">0</div>
-                    <div id="targets2" class="remaining-targets">Objetivos: 5</div>
+                    <div style="font-size: 0.7rem; color: var(--hit);">Vulnerabilidades</div>
                 </div>
             </div>
-            <div id="totalShots" class="total-shots">Disparos totales: 0 / 5</div>
-            <div id="turnIndicator" style="font-weight: 700; padding: 10px; border-radius: 10px;">Esperando movimiento...</div>
+            <div id="turnIndicator" style="font-weight: 700; padding: 10px; border-radius: 6px; text-align: center; margin-top: 10px; background: #2d3748;">Sincronizando...</div>
         </div>
+
+        <div id="reconOverlay" style="display:none;">
+            <h3 style="margin-top:0; color: var(--primary);">Fase de Reconocimiento Activa</h3>
+            <p style="font-size: 0.9rem; color: var(--text-muted);">Responde correctamente para vulnerar el WAF y habilitar el escáner.</p>
+            <p id="questionText" style="font-weight: bold; font-size: 1.1rem;"></p>
+            <div id="optionsContainer"></div>
+        </div>
+
         <div class="grid" id="gameGrid"></div>
-        <button onclick="window.location.reload()" style="background: var(--primary); margin-top: 10px;">Salir de la Partida</button>
     </div>
 </div>
 
 <script>
+    // Configuración Base
     const MASTER_KEY = "ZAID2026";
-    const DEFAULT_ROOM = "BATALLA2026";
+    const DEFAULT_ROOM = "EXPO2026";
 
+    // LLAVES DE FIREBASE PROPORCIONADAS
     const firebaseConfig = {
         apiKey: "AIzaSyCaAkVBDYuqwOpSfoJjkXN6trR5NwvSNn0",
         authDomain: "expos-19452.firebaseapp.com",
@@ -305,119 +178,78 @@
     let teamId = "";
     let currentGame = null;
     let isRegistered = false;
+    let hasPassedRecon = false; // Variable clave para el Cuestionario
+    let lastTurnId = ""; // Para rastrear cambios de turno
     
-    const teamColors = ["#0071e3", "#af52de", "#ff9500", "#ff2d55", "#5856d6", "#34c759", "#ffcc00", "#5ac8fa"];
-    
+    const teamColors = ["#0071e3", "#9b51e0", "#f2994a", "#eb5757"];
+
+    // BANCO DE PREGUNTAS SOBRE TU EXPOSICIÓN
+    const questionBank = [
+        { q: "¿Qué porcentaje del tiempo de una intrusión suele dedicarse a la fase de reconocimiento?", opts: ["10-20%", "40-50%", "70-80%"], a: 2 },
+        { q: "Un escaneo donde el auditor tiene acceso total al código fuente y arquitectura se conoce como...", opts: ["Caja Negra", "Caja Blanca", "Caja Gris"], a: 1 },
+        { q: "Nmap es la herramienta principal utilizada para...", opts: ["Phishing", "Escaneo de Puertos y Servicios", "Desencriptar contraseñas"], a: 1 },
+        { q: "Identificar información pública sin interactuar directamente con el objetivo es reconocimiento...", opts: ["Activo", "Pasivo (OSINT)", "Invasivo"], a: 1 },
+        { q: "¿Qué significa OSINT?", opts: ["Open Source Intelligence", "Operative System Interface", "Online Security Intranet"], a: 0 },
+        { q: "En la evaluación de seguridad, el Riesgo es igual al Impacto multiplicado por...", opts: ["La Vulnerabilidad", "La Probabilidad", "El Tiempo"], a: 1 },
+        { q: "Un auditor simulando ser un atacante externo sin conocimiento previo realiza una prueba de...", opts: ["Caja Negra", "Caja Gris", "Auditoría Interna"], a: 0 },
+        { q: "¿Qué tecnología permite visualizar la superficie de ataque y dispositivos conectados a internet?", opts: ["Maltego", "Burp Suite", "Shodan"], a: 2 },
+        { q: "Analizar metadatos de un archivo PDF público expuesto en la web es una táctica de...", opts: ["Caja Blanca", "OSINT", "Escaneo Activo"], a: 1 },
+        { q: "El 'Banner Grabbing' sirve para...", opts: ["Obtener la versión del software del servidor", "Descargar bases de datos", "Secuestrar sesiones web"], a: 0 },
+        { q: "Una auditoría con privilegios de usuario estándar simulando un empleado deshonesto es...", opts: ["Caja Gris", "Caja Blanca", "Caja Negra"], a: 0 },
+        { q: "Las siglas WAF en seguridad web significan...", opts: ["Web Application Firewall", "Wide Area Frequency", "Wireless Access Filter"], a: 0 },
+        { q: "¿Qué herramienta usarías para interceptar tráfico HTTP y analizar cabeceras?", opts: ["Nmap", "Burp Suite", "TheHarvester"], a: 1 },
+        { q: "El principal objetivo del pentesting ético es...", opts: ["Robar datos", "Identificar fallos antes que los atacantes", "Cerrar la empresa"], a: 1 },
+        { q: "¿Qué técnica interactúa directamente con el servidor dejando registros (logs)?", opts: ["OSINT", "Google Dorking", "Escaneo Activo"], a: 2 },
+        { q: "¿Para qué se usan los 'Dorks' en Google?", opts: ["Para hackear contraseñas", "Para encontrar archivos sensibles indexados", "Para infectar navegadores"], a: 1 },
+        { q: "Detectar el Stack Tecnológico permite al atacante...", opts: ["Conocer los lenguajes y frameworks del servidor", "Apagar el servidor", "Cambiar la base de datos"], a: 0 },
+        { q: "La detección proactiva transforma debilidades en...", opts: ["Ataques", "Fortalezas de seguridad", "Puntos ciegos"], a: 1 }
+    ];
+
+    // Funciones Base
     function forceHardReset() {
-        if(confirm("RESET FORZADO: Esto eliminará TODOS los datos de la sala '" + DEFAULT_ROOM + "'. ¿Estás seguro?")) {
+        if(confirm("Atención: Esto borrará todos los datos de auditoría de la red. ¿Proceder?")) {
             db.ref(`rooms/${DEFAULT_ROOM}`).remove().then(() => {
-                alert("Sala eliminada completamente. La página se recargará.");
-                localStorage.clear();
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-            }).catch(error => {
-                console.error("Error:", error);
-                alert("Error al resetear. Intenta de nuevo.");
+                alert("Base de datos purgada.");
+                setTimeout(() => window.location.reload(), 1000);
             });
         }
     }
-    
-    function initializeRoom() {
-        db.ref(`rooms/${room}`).once('value', snap => {
-            if(!snap.exists()) {
-                db.ref(`rooms/${room}`).set({
-                    initialized: true,
-                    createdAt: Date.now(),
-                    roomName: DEFAULT_ROOM
-                });
-            }
-        });
-    }
-    
+
     function setRole(role) {
         if(role === 'admin') {
             const pass = document.getElementById('adminKey').value;
-            if(pass !== MASTER_KEY) {
-                alert("Clave de administrador incorrecta");
-                return;
-            }
+            if(pass !== MASTER_KEY) return alert("Acceso Denegado. Credenciales inválidas.");
         }
-
         myRole = role;
+        showScreen(role === 'admin' ? 'adminScreen' : 'teamScreen');
         
         if(role === 'team') {
-            isRegistered = false;
-            const teamNameInput = document.getElementById('teamNameInput');
-            const registerBtn = document.getElementById('registerBtn');
-            const registeredMsg = document.getElementById('registeredMessage');
-            if(teamNameInput) teamNameInput.style.display = 'block';
-            if(teamNameInput) teamNameInput.value = '';
-            if(registerBtn) registerBtn.style.display = 'block';
-            if(registeredMsg) registeredMsg.style.display = 'none';
-            if(registerBtn) registerBtn.disabled = false;
+            document.getElementById('teamNameInput').style.display = 'block';
+            document.getElementById('registerBtn').style.display = 'block';
+            document.getElementById('registeredMessage').style.display = 'none';
         }
-        
-        showScreen(role === 'admin' ? 'adminScreen' : 'teamScreen');
-        initializeRoom();
         listenToRoom();
-        
-        if(role === 'admin') {
-            setTimeout(() => loadTeamSelectors(), 500);
-        }
     }
 
     function registerTeam() {
-        if(isRegistered) {
-            alert("Tu equipo ya está registrado. Solo puedes registrarte una vez.");
-            return;
-        }
-        
+        if(isRegistered) return alert("Ya estás en la red.");
         const name = document.getElementById('teamNameInput').value;
-        if(!name) {
-            alert("Por favor ingresa un nombre para el equipo");
-            return;
-        }
+        if(!name) return;
         
-        db.ref(`rooms/${room}/teams`).once('value', snap => {
-            const teams = snap.val() || {};
-            let nameExists = false;
-            Object.values(teams).forEach(team => {
-                if(team.name === name) {
-                    nameExists = true;
-                }
-            });
-            
-            if(nameExists) {
-                alert("Ya existe un equipo con ese nombre. Por favor elige otro.");
-                return;
-            }
-            
-            teamId = 'team_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-            db.ref(`rooms/${room}/teams/${teamId}`).set({ 
-                name: name, 
-                score: 0, 
-                eliminated: false,
-                registeredAt: Date.now()
-            }).then(() => {
-                isRegistered = true;
-                localStorage.setItem(`registered_${room}`, teamId);
-                const teamNameInput = document.getElementById('teamNameInput');
-                const registerBtn = document.getElementById('registerBtn');
-                const registeredMsg = document.getElementById('registeredMessage');
-                if(teamNameInput) teamNameInput.style.display = 'none';
-                if(registerBtn) registerBtn.style.display = 'none';
-                if(registeredMsg) registeredMsg.style.display = 'block';
-            });
+        teamId = 'team_' + Math.random().toString(36).substr(2, 5);
+        db.ref(`rooms/${room}/teams/${teamId}`).set({ 
+            name: name, score: 0, eliminated: false 
+        }).then(() => {
+            isRegistered = true;
+            document.getElementById('teamNameInput').style.display = 'none';
+            document.getElementById('registerBtn').style.display = 'none';
+            document.getElementById('registeredMessage').style.display = 'block';
         });
     }
 
+    // Escuchadores de Firebase
     function listenToRoom() {
-        const teamsRef = db.ref(`rooms/${room}/teams`);
-        const gameRef = db.ref(`rooms/${room}/game`);
-        const tournamentRef = db.ref(`rooms/${room}/tournament`);
-        
-        teamsRef.on('value', snap => {
+        db.ref(`rooms/${room}/teams`).on('value', snap => {
             const teams = snap.val() || {};
             const list = document.getElementById('teamList');
             if(list) {
@@ -426,135 +258,68 @@
                 Object.keys(teams).forEach((id) => {
                     const div = document.createElement('div');
                     div.className = "team-item";
-                    div.style.background = teamColors[index % teamColors.length];
-                    const status = teams[id].eliminated ? " (ELIMINADO)" : " (ACTIVO)";
-                    div.innerText = teams[id].name + status;
+                    div.style.borderColor = teamColors[index % teamColors.length];
+                    div.innerText = teams[id].name + (teams[id].eliminated ? " [SISTEMA COMPROMETIDO]" : " [OPERATIVO]");
                     list.appendChild(div);
                     index++;
                 });
             }
             if(myRole === 'admin') {
-                loadTeamSelectors();
                 const activeTeams = Object.keys(teams).filter(id => !teams[id].eliminated).length;
-                const startBtn = document.getElementById('startBtn');
-                if(startBtn && activeTeams >= 2) {
-                    startBtn.style.display = 'block';
-                }
-                const resetAllBtn = document.getElementById('resetAllBtn');
-                if(resetAllBtn && activeTeams > 0) {
-                    resetAllBtn.style.display = 'block';
-                }
+                document.getElementById('startBtn').style.display = activeTeams >= 2 ? 'block' : 'none';
+                document.getElementById('resetAllBtn').style.display = activeTeams > 0 ? 'block' : 'none';
             }
         });
 
-        tournamentRef.on('value', snap => {
-            const data = snap.val();
-            if(data && myRole === 'admin') {
-                loadTournamentHistory();
-            }
+        db.ref(`rooms/${room}/tournament`).on('value', snap => {
+            if(myRole === 'admin') loadTournamentHistory(snap.val());
         });
 
-        gameRef.on('value', snap => {
+        db.ref(`rooms/${room}/game`).on('value', snap => {
             const game = snap.val();
-            const resetGameBtn = document.getElementById('resetGameBtn');
             if(game && game.status === 'playing') {
                 currentGame = game;
                 showScreen('gameScreen');
+                
+                // Lógica de reseteo de pregunta si cambia el turno
+                if(lastTurnId !== game.turn) {
+                    hasPassedRecon = false; 
+                    lastTurnId = game.turn;
+                }
+                
                 updateUI(game);
                 checkWinner(game);
-                if(myRole === 'admin' && resetGameBtn) {
-                    resetGameBtn.style.display = 'block';
-                }
             } else if(game && game.status === 'finished') {
-                handleGameFinished(game);
-                if(myRole === 'admin' && resetGameBtn) {
-                    resetGameBtn.style.display = 'block';
-                }
-            } else if(myRole === 'admin' && resetGameBtn && (!game || game.status === 'finished')) {
-                resetGameBtn.style.display = 'block';
+                if(myRole === 'team') showScreen('teamScreen');
             }
         });
     }
 
-    function loadTeamSelectors() {
-        db.ref(`rooms/${room}/teams`).once('value', snap => {
-            const teams = snap.val() || {};
-            const activeTeams = Object.keys(teams).filter(id => !teams[id].eliminated);
-            
-            const select1 = document.getElementById('teamSelect1');
-            const select2 = document.getElementById('teamSelect2');
-            
-            if(select1 && select2) {
-                select1.innerHTML = '<option value="">Seleccionar Equipo 1</option>';
-                select2.innerHTML = '<option value="">Seleccionar Equipo 2</option>';
-                
-                activeTeams.forEach(id => {
-                    const option1 = document.createElement('option');
-                    option1.value = id;
-                    option1.textContent = teams[id].name;
-                    select1.appendChild(option1);
-                    
-                    const option2 = document.createElement('option');
-                    option2.value = id;
-                    option2.textContent = teams[id].name;
-                    select2.appendChild(option2);
-                });
-            }
-        });
-    }
-
-    function startSelectedMatch() {
-        const team1Id = document.getElementById('teamSelect1').value;
-        const team2Id = document.getElementById('teamSelect2').value;
-        
-        if(!team1Id || !team2Id) {
-            alert("Por favor selecciona ambos equipos");
-            return;
-        }
-        
-        if(team1Id === team2Id) {
-            alert("Debes seleccionar dos equipos diferentes");
-            return;
-        }
-        
-        db.ref(`rooms/${room}/teams`).once('value', snap => {
-            const teams = snap.val();
-            startMatch(team1Id, team2Id, teams);
-            const startBtn = document.getElementById('startBtn');
-            if(startBtn) startBtn.style.display = 'none';
-        });
-    }
-
+    // Torneo (Emparejamiento Aleatorio)
     function startRandomTournament() {
         db.ref(`rooms/${room}/teams`).once('value', snap => {
             const teams = snap.val();
             const activeTeams = Object.keys(teams).filter(id => !teams[id].eliminated);
-            if(activeTeams.length < 2) {
-                alert("Se necesitan al menos 2 equipos activos");
-                return;
-            }
-            
             const shuffled = [...activeTeams].sort(() => Math.random() - 0.5);
-            const team1 = shuffled[0];
-            const team2 = shuffled[1];
             
-            const newTournament = {
-                rounds: [[{ 
-                    team1: team1, 
-                    team2: team2, 
-                    winner: null, 
-                    team1Name: teams[team1].name, 
-                    team2Name: teams[team2].name 
-                }]],
-                winners: [],
-                finalWinner: null,
-                startedAt: Date.now()
-            };
-            
-            db.ref(`rooms/${room}/tournament`).set(newTournament);
-            startMatch(team1, team2, teams);
-            const startBtn = document.getElementById('startBtn');
-            if(startBtn) startBtn.style.display = 'none';
+            db.ref(`rooms/${room}/tournament`).once('value', tSnap => {
+                let tournament = tSnap.val();
+                if(!tournament) {
+                    tournament = { rounds: [], winners: [] };
+                }
+                
+                const team1 = shuffled[0];
+                const team2 = shuffled[1];
+                
+                tournament.rounds.push([{ 
+                    team1: team1, team2: team2, winner: null, 
+                    team1Name: teams[team1].name, team2Name: teams[team2].name 
+                }]);
+                
+                db.ref(`rooms/${room}/tournament`).set(tournament);
+                startMatch(team1, team2, teams);
+            });
+            document.getElementById('startBtn').style.display = 'none';
         });
     }
 
@@ -569,79 +334,61 @@
             status: 'playing',
             t1: { id: team1Id, name: teams[team1Id].name },
             t2: { id: team2Id, name: teams[team2Id].name },
-            turn: team1Id,
-            score1: 0,
-            score2: 0,
-            hits: {},
-            misses: {},
-            ships: ships,
-            round: 1,
-            startedAt: Date.now(),
-            totalShotsMade: 0
+            turn: team1Id, score1: 0, score2: 0,
+            hits: {}, misses: {}, ships: ships
         });
     }
 
-    function resetCurrentGame() {
-        if(confirm("¿Reiniciar la partida actual? Se perderá el progreso de esta partida.")) {
-            db.ref(`rooms/${room}/game`).remove().then(() => {
-                alert("Partida reiniciada. Puedes iniciar una nueva.");
-                if(myRole === 'admin') {
-                    loadTeamSelectors();
-                }
-                showScreen('adminScreen');
-            });
-        }
-    }
-
+    // Actualización de Interfaz y Cuestionario
     function updateUI(game) {
-        if (!game) return;
-        
-        const remainingTargets1 = 5 - (game.score1 || 0);
-        const remainingTargets2 = 5 - (game.score2 || 0);
-        
-        const name1El = document.getElementById('name1');
-        const name2El = document.getElementById('name2');
-        const score1El = document.getElementById('score1');
-        const score2El = document.getElementById('score2');
-        const targets1El = document.getElementById('targets1');
-        const targets2El = document.getElementById('targets2');
-        
-        if(name1El) name1El.innerText = game.t1.name;
-        if(name2El) name2El.innerText = game.t2.name;
-        if(score1El) score1El.innerText = game.score1 || 0;
-        if(score2El) score2El.innerText = game.score2 || 0;
-        if(targets1El) targets1El.innerHTML = `Objetivos restantes: ${remainingTargets1}`;
-        if(targets2El) targets2El.innerHTML = `Objetivos restantes: ${remainingTargets2}`;
-        
-        const totalShots = game.totalShotsMade || 0;
-        const totalShotsElement = document.getElementById('totalShots');
-        if(totalShotsElement) {
-            totalShotsElement.innerHTML = `Disparos totales: ${totalShots} / 5`;
-            if(totalShots >= 5) {
-                totalShotsElement.style.color = "var(--hit)";
-                totalShotsElement.style.fontWeight = "bold";
-            }
-        }
+        document.getElementById('name1').innerText = game.t1.name;
+        document.getElementById('name2').innerText = game.t2.name;
+        document.getElementById('score1').innerText = game.score1 || 0;
+        document.getElementById('score2').innerText = game.score2 || 0;
         
         const isMyTurn = (teamId === game.turn);
-        const turnName = (game.turn === game.t1.id ? game.t1.name : game.t2.name);
         const indicator = document.getElementById('turnIndicator');
+        const grid = document.getElementById('gameGrid');
+        const reconOverlay = document.getElementById('reconOverlay');
         
-        if (indicator) {
-            if (isMyTurn && myRole === 'team') {
-                indicator.innerText = "TU TURNO!";
-                indicator.style.background = "rgba(52,199,89,0.2)";
-                indicator.style.color = "var(--hit)";
+        // Manejo de Interfaz según rol y estado de reconocimiento
+        if (myRole === 'team') {
+            if (isMyTurn) {
+                if(!hasPassedRecon) {
+                    // Mostrar Pregunta
+                    indicator.innerText = "ATENCIÓN: RECONOCIMIENTO REQUERIDO";
+                    indicator.style.color = "var(--text)";
+                    indicator.style.border = "1px solid var(--primary)";
+                    grid.style.display = "none";
+                    reconOverlay.style.display = "block";
+                    generateQuestion();
+                } else {
+                    // Mostrar Tablero habilitado
+                    indicator.innerText = "WAF VULNERADO - INICIE ESCANEO DE PUERTOS";
+                    indicator.style.color = "var(--hit)";
+                    indicator.style.border = "1px solid var(--hit)";
+                    reconOverlay.style.display = "none";
+                    grid.style.display = "grid";
+                }
             } else {
-                indicator.innerText = "TURNO DE: " + turnName.toUpperCase();
-                indicator.style.background = "rgba(0,113,227,0.1)";
-                indicator.style.color = "var(--primary)";
+                // Turno del rival
+                const turnName = (game.turn === game.t1.id ? game.t1.name : game.t2.name);
+                indicator.innerText = `SISTEMA BLOQUEADO. ${turnName.toUpperCase()} OPERANDO...`;
+                indicator.style.color = "var(--miss)";
+                indicator.style.border = "1px solid transparent";
+                reconOverlay.style.display = "none";
+                grid.style.display = "none"; // Ocultar grid para no dar pistas
             }
+        } else {
+            // Vista Admin (Ve todo)
+            const turnName = (game.turn === game.t1.id ? game.t1.name : game.t2.name);
+            indicator.innerText = `Turno de operación: ${turnName}`;
+            indicator.style.color = "var(--primary)";
+            reconOverlay.style.display = "none";
+            grid.style.display = "grid";
         }
 
-        const grid = document.getElementById('gameGrid');
-        if (!grid) return;
-        
+        // Renderizar Tablero
         grid.innerHTML = "";
         for(let i = 0; i < 25; i++) {
             const cell = document.createElement('div');
@@ -649,97 +396,103 @@
             if (game.hits && game.hits[i]) cell.classList.add("hit");
             if (game.misses && game.misses[i]) cell.classList.add("miss");
             
-            const row = Math.floor(i / 5);
-            const col = i % 5;
-            cell.innerText = `${row},${col}`;
-            
+            cell.innerText = `P-${i}`;
             const alreadyPlayed = (game.hits && game.hits[i]) || (game.misses && game.misses[i]);
             if(alreadyPlayed) cell.classList.add("disabled");
             
-            cell.onclick = (function(index) {
-                return function() { 
-                    if(isMyTurn && myRole === 'team' && game.status === 'playing' && !alreadyPlayed) {
-                        sendMove(index, game); 
-                    } else if(alreadyPlayed) {
-                        alert("Ya disparaste aqui");
-                    } else if(!isMyTurn && myRole === 'team') {
-                        alert("No es tu turno");
-                    }
-                };
-            })(i);
-            
+            cell.onclick = () => {
+                if(isMyTurn && myRole === 'team' && hasPassedRecon && !alreadyPlayed) {
+                    sendMove(i, game);
+                }
+            };
             grid.appendChild(cell);
         }
+    }
+
+    // LÓGICA DEL CUESTIONARIO
+    function generateQuestion() {
+        const qContainer = document.getElementById('reconOverlay');
+        // Evitar regenerar si ya hay una pregunta mostrándose
+        if(qContainer.dataset.active === "true") return; 
         
-        const gameCard = document.getElementById('gameCard');
-        if(gameCard) {
-            if(game.turn === teamId && myRole === 'team') {
-                gameCard.style.background = "rgba(52,199,89,0.1)";
-            } else if(myRole === 'team') {
-                gameCard.style.background = "rgba(0,113,227,0.05)";
-            }
+        const randomQ = questionBank[Math.floor(Math.random() * questionBank.length)];
+        document.getElementById('questionText').innerText = randomQ.q;
+        
+        const optsContainer = document.getElementById('optionsContainer');
+        optsContainer.innerHTML = "";
+        
+        randomQ.opts.forEach((opt, index) => {
+            const btn = document.createElement('button');
+            btn.className = "option-btn";
+            btn.innerText = opt;
+            btn.onclick = () => handleAnswer(index, randomQ.a);
+            optsContainer.appendChild(btn);
+        });
+        
+        qContainer.dataset.active = "true";
+    }
+
+    function handleAnswer(selectedIndex, correctIndex) {
+        document.getElementById('reconOverlay').dataset.active = "false";
+        
+        if(selectedIndex === correctIndex) {
+            alert("Reconocimiento Exitoso. Acceso al escaneo concedido.");
+            hasPassedRecon = true;
+            updateUI(currentGame); // Refresca para mostrar el grid
+        } else {
+            alert("ERROR: Firewall detectó actividad anómala. Turno bloqueado.");
+            hasPassedRecon = false;
+            skipTurn(currentGame);
         }
+    }
+
+    function skipTurn(game) {
+        const nextTurn = (game.turn === game.t1.id ? game.t2.id : game.t1.id);
+        db.ref(`rooms/${room}/game/turn`).set(nextTurn);
+    }
+
+    // Lógica de Movimiento y Finalización
+    function sendMove(idx, game) {
+        const isHit = game.ships.includes(idx);
+        const updates = {};
+        const path = `rooms/${room}/game/`;
+        
+        if(isHit) {
+            updates[path + 'hits/' + idx] = true;
+            updates[path + (game.turn === game.t1.id ? 'score1' : 'score2')] = (game.turn === game.t1.id ? (game.score1||0) : (game.score2||0)) + 1;
+        } else {
+            updates[path + 'misses/' + idx] = true;
+        }
+        
+        updates[path + 'lastPlayer'] = game.turn;
+        updates[path + 'turn'] = (game.turn === game.t1.id ? game.t2.id : game.t1.id);
+        
+        db.ref().update(updates);
     }
 
     function checkWinner(game) {
-        const totalShots = game.totalShotsMade || 0;
-        const score1 = game.score1 || 0;
-        const score2 = game.score2 || 0;
-        
-        if(score1 >= 5) {
-            declareWinner(game.t1.id, game.t2.id, game);
-        } 
-        else if(score2 >= 5) {
-            declareWinner(game.t2.id, game.t1.id, game);
-        }
-        else if(totalShots >= 5) {
-            if(score1 > score2) {
-                declareWinner(game.t1.id, game.t2.id, game);
-            } 
-            else if(score2 > score1) {
-                declareWinner(game.t2.id, game.t1.id, game);
+        const total = (game.score1 || 0) + (game.score2 || 0);
+        if(total >= 5) {
+            let winnerId = game.score1 > game.score2 ? game.t1.id : game.t2.id;
+            let loserId = game.score1 > game.score2 ? game.t2.id : game.t1.id;
+            
+            db.ref(`rooms/${room}/game/status`).set('finished');
+            
+            if(myRole === 'admin') {
+                updateTournamentBracket(winnerId, loserId);
             }
-            else {
-                const lastPlayer = game.lastPlayer;
-                if(lastPlayer === game.t1.id) {
-                    declareWinner(game.t2.id, game.t1.id, game);
-                } else {
-                    declareWinner(game.t1.id, game.t2.id, game);
-                }
-            }
+            showWinnerModal(winnerId === game.t1.id ? game.t1.name : game.t2.name);
         }
     }
 
-    function declareWinner(winnerId, loserId, game) {
-        const winnerName = winnerId === game.t1.id ? game.t1.name : game.t2.name;
-        const loserName = loserId === game.t1.id ? game.t1.name : game.t2.name;
-        const winnerScore = winnerId === game.t1.id ? game.score1 : game.score2;
-        const loserScore = loserId === game.t1.id ? game.score1 : game.score2;
-        
-        const updates = {};
-        updates[`rooms/${room}/game/status`] = 'finished';
-        updates[`rooms/${room}/game/winner`] = winnerId;
-        updates[`rooms/${room}/game/loser`] = loserId;
-        updates[`rooms/${room}/game/winnerScore`] = winnerScore;
-        updates[`rooms/${room}/game/loserScore`] = loserScore;
-        updates[`rooms/${room}/game/endedAt`] = Date.now();
-        
-        db.ref().update(updates, () => {
-            showWinnerModal(winnerName, winnerScore, loserName, loserScore);
-            updateTournamentBracket(winnerId, loserId);
-        });
-    }
-
-    function showWinnerModal(winnerName, winnerScore, loserName, loserScore) {
+    function showWinnerModal(winnerName) {
         const modal = document.createElement('div');
         modal.className = 'winner-overlay';
         modal.innerHTML = `
             <div class="winner-card">
-                <h1>VICTORIA!</h1>
-                <h2>${winnerName}</h2>
-                <p>Ha ganado la batalla con ${winnerScore} objetivos!</p>
-                <p style="font-size: 0.9rem; opacity: 0.9;">${loserName} logró ${loserScore} objetivos</p>
-                <button onclick="this.closest('.winner-overlay').remove(); location.reload();">Continuar</button>
+                <h1 style="color:var(--hit);">INTRUSIÓN COMPLETA</h1>
+                <h2>El equipo <span style="color:white;">${winnerName}</span> ha vulnerado el sistema.</h2>
+                <button onclick="this.closest('.winner-overlay').remove();" style="background:#2d3748; margin-top:20px;">Cerrar Protocolo</button>
             </div>
         `;
         document.body.appendChild(modal);
@@ -747,143 +500,45 @@
 
     function updateTournamentBracket(winnerId, loserId) {
         db.ref(`rooms/${room}/teams/${loserId}/eliminated`).set(true);
-        
         db.ref(`rooms/${room}/tournament`).once('value', snap => {
             const tournament = snap.val();
             if(tournament && tournament.rounds) {
                 const currentRound = tournament.rounds[tournament.rounds.length - 1];
-                if(currentRound) {
-                    for(let match of currentRound) {
-                        if((match.team1 === winnerId || match.team2 === winnerId) && !match.winner) {
-                            match.winner = winnerId;
-                            break;
-                        }
+                for(let match of currentRound) {
+                    if(!match.winner && (match.team1 === winnerId || match.team2 === winnerId)) {
+                        match.winner = winnerId;
+                        break;
                     }
                 }
-                
-                tournament.winners.push(winnerId);
                 db.ref(`rooms/${room}/tournament`).set(tournament);
             }
         });
     }
 
-    function handleGameFinished(game) {
-        if(myRole === 'team') {
-            setTimeout(() => {
-                showScreen('teamScreen');
-                alert("Juego terminado. Esperando...");
-            }, 3000);
-        }
-    }
-
-    function loadTournamentHistory() {
-        const bracketDiv = document.getElementById('tournamentBracket');
-        if(!bracketDiv) return;
+    function loadTournamentHistory(tournament) {
+        const div = document.getElementById('tournamentBracket');
+        if(!tournament || !tournament.rounds) return div.innerHTML = "No hay operaciones registradas.";
         
-        db.ref(`rooms/${room}/tournament`).once('value', snap => {
-            const tournament = snap.val();
-            if(!tournament || !tournament.rounds || tournament.rounds.length === 0) {
-                bracketDiv.innerHTML = '<p>No hay torneo en curso</p>';
-                return;
-            }
-            
-            let html = '';
-            tournament.rounds.forEach((round, roundIndex) => {
-                if(round && round.length > 0) {
-                    html += `<div class="round"><strong>Ronda ${roundIndex + 1}</strong>`;
-                    round.forEach(match => {
-                        const winner = match.winner;
-                        html += `<div class="match">
-                            <div>
-                                <span class="team-color-badge" style="background: ${teamColors[0]}"></span>
-                                <span class="${winner === match.team1 ? 'winner-team' : (match.winner ? 'loser-team' : '')}">${match.team1Name || '???'}</span>
-                            </div>
-                            <div>VS</div>
-                            <div>
-                                <span class="team-color-badge" style="background: ${teamColors[1]}"></span>
-                                <span class="${winner === match.team2 ? 'winner-team' : (match.winner ? 'loser-team' : '')}">${match.team2Name || '???'}</span>
-                            </div>
-                        </div>`;
-                    });
-                    html += `</div>`;
-                }
+        let html = '';
+        tournament.rounds.forEach((round, i) => {
+            html += `<div class="round"><span style="color:var(--text-muted); font-size:0.8rem;">FASE ${i+1}</span>`;
+            round.forEach(match => {
+                const w = match.winner;
+                html += `<div class="match">
+                    <span class="${w === match.team1 ? 'winner-team' : (w ? 'loser-team' : '')}">${match.team1Name}</span>
+                    <span style="opacity:0.3;">VS</span>
+                    <span class="${w === match.team2 ? 'winner-team' : (w ? 'loser-team' : '')}">${match.team2Name}</span>
+                </div>`;
             });
-            
-            if(tournament.finalWinner) {
-                db.ref(`rooms/${room}/teams/${tournament.finalWinner}`).once('value', snap => {
-                    const winnerTeam = snap.val();
-                    html += `<div class="round" style="background: linear-gradient(135deg, #ffd700, #ff8c00); color: white;">
-                        <strong>CAMPEON: ${winnerTeam?.name || '???'}</strong>
-                    </div>`;
-                    bracketDiv.innerHTML = html;
-                });
-            } else {
-                bracketDiv.innerHTML = html;
-            }
+            html += `</div>`;
         });
-    }
-
-    function resetTournament() {
-        if(confirm("ADVERTENCIA: Esto eliminara TODOS los equipos y el progreso del torneo. Estas seguro?")) {
-            db.ref(`rooms/${room}`).remove().then(() => {
-                setTimeout(() => {
-                    initializeRoom();
-                    const resetAllBtn = document.getElementById('resetAllBtn');
-                    const resetGameBtn = document.getElementById('resetGameBtn');
-                    const startBtn = document.getElementById('startBtn');
-                    const tournamentBracket = document.getElementById('tournamentBracket');
-                    const teamList = document.getElementById('teamList');
-                    
-                    if(resetAllBtn) resetAllBtn.style.display = 'none';
-                    if(resetGameBtn) resetGameBtn.style.display = 'none';
-                    if(startBtn) startBtn.style.display = 'none';
-                    if(tournamentBracket) tournamentBracket.innerHTML = '<p>No hay torneo activo</p>';
-                    if(teamList) teamList.innerHTML = '';
-                    
-                    alert("El torneo ha sido reiniciado completamente");
-                    loadTeamSelectors();
-                }, 500);
-            }).catch(error => {
-                console.error("Error al reiniciar:", error);
-                alert("Error al reiniciar el torneo. Por favor intenta de nuevo.");
-            });
-        }
-    }
-
-    function sendMove(idx, game) {
-        if ((game.hits && game.hits[idx]) || (game.misses && game.misses[idx])) {
-            alert("Ya disparaste aqui");
-            return;
-        }
-        
-        const isHit = game.ships.includes(idx);
-        const updates = {};
-        const path = `rooms/${room}/game/`;
-        const newTotalShots = (game.totalShotsMade || 0) + 1;
-        
-        if(isHit) {
-            updates[path + 'hits/' + idx] = true;
-            const newScore = (game.turn === game.t1.id ? (game.score1 || 0) : (game.score2 || 0)) + 1;
-            updates[path + (game.turn === game.t1.id ? 'score1' : 'score2')] = newScore;
-        } else {
-            updates[path + 'misses/' + idx] = true;
-        }
-        
-        updates[path + 'totalShotsMade'] = newTotalShots;
-        updates[path + 'lastPlayer'] = game.turn;
-        updates[path + 'turn'] = (game.turn === game.t1.id ? game.t2.id : game.t1.id);
-        
-        db.ref().update(updates);
+        div.innerHTML = html;
     }
 
     function showScreen(id) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        const screen = document.getElementById(id);
-        if (screen) screen.classList.add('active');
+        document.getElementById(id).classList.add('active');
     }
-
-    // Inicializar
-    initializeRoom();
 </script>
 </body>
 </html>
