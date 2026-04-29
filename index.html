@@ -14,6 +14,7 @@
             --hit: #34c759;
             --miss: #ff3b30;
             --text: #1d1d1f;
+            --winner: #ffd700;
         }
 
         body {
@@ -26,14 +27,15 @@
             padding: 20px;
         }
 
-        .container { width: 100%; max-width: 450px; text-align: center; }
+        .container { width: 100%; max-width: 500px; text-align: center; }
         .screen { display: none; flex-direction: column; gap: 20px; }
         .active { display: flex; }
 
         .card { background: var(--card); padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
         
         input { padding: 12px; border-radius: 10px; border: 1px solid #d2d2d7; font-size: 1rem; width: 85%; margin: 8px auto; display: block; }
-        button { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 12px; font-weight: 600; cursor: pointer; width: 92%; margin: 5px auto; }
+        button { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 12px; font-weight: 600; cursor: pointer; width: 92%; margin: 5px auto; transition: transform 0.2s; }
+        button:hover { transform: scale(0.98); }
         
         .admin-section { border-top: 1px solid #d2d2d7; margin-top: 20px; padding-top: 20px; }
         .team-item { padding: 12px; border-radius: 10px; margin-bottom: 8px; color: white; font-weight: 700; text-align: center; }
@@ -42,26 +44,111 @@
         .cell { aspect-ratio: 1/1; background: #e5e5ea; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; cursor: pointer; transition: 0.3s; font-weight: bold; color: #8e8e93; }
         .cell.hit { background: var(--hit) !important; color: white; transform: scale(0.9); }
         .cell.miss { background: var(--miss) !important; color: white; }
+        .cell.disabled { cursor: not-allowed; opacity: 0.6; }
 
         .vs-container { display: flex; justify-content: space-around; align-items: center; margin: 15px 0; }
         .score-box { font-size: 2.5rem; font-weight: 800; }
+
+        .winner-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.5s;
+        }
+        .winner-card {
+            background: linear-gradient(135deg, var(--winner), #ff8c00);
+            padding: 40px;
+            border-radius: 30px;
+            text-align: center;
+            color: white;
+            animation: bounce 0.5s;
+        }
+        .winner-card h1 { font-size: 3rem; margin: 0; }
+        .winner-card button {
+            background: white;
+            color: black;
+            margin-top: 20px;
+            width: auto;
+            padding: 10px 30px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes bounce {
+            0% { transform: scale(0.3); }
+            100% { transform: scale(1); }
+        }
+
+        .tournament-table {
+            background: white;
+            border-radius: 15px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .tournament-table h3 { margin: 0 0 10px 0; }
+        .round {
+            border-left: 3px solid var(--primary);
+            padding: 10px;
+            margin: 10px 0;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .match {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .winner-team { color: var(--hit); font-weight: bold; }
+        .loser-team { color: var(--miss); text-decoration: line-through; }
+        .team-color-badge {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        .team1-bg { background: rgba(0,113,227,0.1); }
+        .team2-bg { background: rgba(175,82,222,0.1); }
+        
+        .remaining-targets {
+            font-size: 0.9rem;
+            color: var(--primary);
+            font-weight: 600;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div id="roleScreen" class="screen active">
-        <h1>Coordinate Strike</h1>
+        <h1>🎯 Coordinate Strike</h1>
         <div class="card">
             <label style="font-size: 0.8rem; font-weight: 600;">CODIGO DE SALA</label>
             <input type="text" id="roomCode" placeholder="EJ: CLASE123">
             
-            <button onclick="setRole('team')" style="background:#5856d6">Unirse como Equipo</button>
+            <button onclick="setRole('team')" style="background:#5856d6">🚩 Unirse como Equipo</button>
 
             <div class="admin-section">
-                <label style="font-size: 0.8rem; font-weight: 600;">ACCESO ADMINISTRADOR</label>
+                <label style="font-size: 0.8rem; font-weight: 600;">🔐 ACCESO ADMINISTRADOR</label>
                 <input type="password" id="adminKey" placeholder="Clave Maestra">
-                <button onclick="setRole('admin')" style="background:var(--text)">Acceder como Admin</button>
+                <button onclick="setRole('admin')" style="background:var(--text)">👑 Acceder como Admin</button>
             </div>
         </div>
     </div>
@@ -70,44 +157,49 @@
         <h2 id="displayRoom">SALA: --</h2>
         <div class="card">
             <input type="text" id="teamNameInput" placeholder="Nombre del Equipo">
-            <button onclick="registerTeam()">Registrar</button>
-            <p id="waitMsg" style="display:none; color: var(--primary); font-weight: 600;">¡Registrado! Espera a que el Admin inicie.</p>
+            <button onclick="registerTeam()">📝 Registrar Equipo</button>
+            <p id="waitMsg" style="display:none; color: var(--hit); font-weight: 600;">✅ ¡Registrado! Espera a que el Admin inicie el torneo.</p>
         </div>
     </div>
 
     <div id="adminScreen" class="screen">
-        <h1>Panel Admin</h1>
+        <h1>🎮 Panel Admin</h1>
         <div class="card">
-            <p style="font-weight: 600;">Equipos en espera:</p>
+            <div class="tournament-table">
+                <h3>🏆 TABLA DEL TORNEO</h3>
+                <div id="tournamentBracket"></div>
+            </div>
+            <p style="font-weight: 600; margin-top: 20px;">📋 Equipos registrados:</p>
             <div id="teamList"></div>
-            <button id="startBtn" onclick="startTournament()" style="display:none; background: var(--hit)">Iniciar Match Aleatorio</button>
+            <button id="startBtn" onclick="startTournament()" style="display:none; background: var(--hit)">🎲 Iniciar Torneo</button>
+            <button id="resetBtn" onclick="resetTournament()" style="display:none; background: var(--miss)">🔄 Resetear Torneo</button>
         </div>
     </div>
 
     <div id="gameScreen" class="screen">
-        <div class="card">
+        <div class="card" id="gameCard">
             <div class="vs-container">
                 <div id="t1Display">
                     <div id="name1" style="font-weight: 700;">--</div>
                     <div class="score-box" id="score1">0</div>
+                    <div id="targets1" class="remaining-targets">🎯 Objetivos: 5</div>
                 </div>
                 <div style="font-weight: 900; opacity: 0.3;">VS</div>
                 <div id="t2Display">
                     <div id="name2" style="font-weight: 700;">--</div>
                     <div class="score-box" id="score2">0</div>
+                    <div id="targets2" class="remaining-targets">🎯 Objetivos: 5</div>
                 </div>
             </div>
-            <div id="turnIndicator" style="font-weight: 700;">ESPERANDO MOVIMIENTO...</div>
+            <div id="turnIndicator" style="font-weight: 700; padding: 10px; border-radius: 10px;">ESPERANDO MOVIMIENTO...</div>
         </div>
         <div class="grid" id="gameGrid"></div>
     </div>
 </div>
 
 <script>
-    // CONFIGURACION DE SEGURIDAD
     const MASTER_KEY = "ZAID2026";
 
-    // Configuración de Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyCaAkVBDYuqwOpSfoJjkXN6trR5NwvSNn0",
         authDomain: "expos-19452.firebaseapp.com",
@@ -119,14 +211,20 @@
         measurementId: "G-PXKL2KEG7Z"
     };
 
-    // Inicializar Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     
     let room = "";
     let myRole = "";
     let teamId = "";
+    let currentGame = null;
+    
     const teamColors = ["#0071e3", "#af52de", "#ff9500", "#ff2d55", "#5856d6", "#34c759", "#ffcc00", "#5ac8fa"];
+    let tournamentData = {
+        rounds: [],
+        winners: [],
+        finalWinner: null
+    };
 
     function setRole(role) {
         room = document.getElementById('roomCode').value.toUpperCase();
@@ -140,6 +238,7 @@
         myRole = role;
         showScreen(role === 'admin' ? 'adminScreen' : 'teamScreen');
         if(role === 'team') document.getElementById('displayRoom').innerText = "SALA: " + room;
+        if(role === 'admin') loadTournamentHistory();
         listenToRoom();
     }
 
@@ -149,8 +248,8 @@
             alert("Por favor ingresa un nombre para el equipo");
             return;
         }
-        teamId = 't_' + Math.random().toString(36).substr(2, 5);
-        db.ref(`rooms/${room}/teams/${teamId}`).set({ name: name, score: 0 });
+        teamId = 't_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+        db.ref(`rooms/${room}/teams/${teamId}`).set({ name: name, score: 0, eliminated: false });
         document.getElementById('teamNameInput').style.display = 'none';
         document.getElementById('waitMsg').style.display = 'block';
     }
@@ -166,21 +265,34 @@
                     const div = document.createElement('div');
                     div.className = "team-item";
                     div.style.background = teamColors[index % teamColors.length];
-                    div.innerText = teams[id].name;
+                    div.innerText = teams[id].name + (teams[id].eliminated ? " ❌" : " ✅");
                     list.appendChild(div);
                     index++;
                 });
-                if(myRole === 'admin' && Object.keys(teams).length >= 2) {
+                const activeTeams = Object.keys(teams).filter(id => !teams[id].eliminated).length;
+                if(myRole === 'admin' && activeTeams >= 2) {
                     document.getElementById('startBtn').style.display = 'block';
                 }
+            }
+        });
+
+        db.ref(`rooms/${room}/tournament`).on('value', snap => {
+            const data = snap.val();
+            if(data) {
+                tournamentData = data;
+                if(myRole === 'admin') loadTournamentHistory();
             }
         });
 
         db.ref(`rooms/${room}/game`).on('value', snap => {
             const game = snap.val();
             if(game && game.status === 'playing') {
+                currentGame = game;
                 showScreen('gameScreen');
                 updateUI(game);
+                checkWinner(game);
+            } else if(game && game.status === 'finished') {
+                handleGameFinished(game);
             }
         });
     }
@@ -188,38 +300,73 @@
     function startTournament() {
         db.ref(`rooms/${room}/teams`).once('value', snap => {
             const teams = snap.val();
-            const ids = Object.keys(teams).sort(() => Math.random() - 0.5);
-            db.ref(`rooms/${room}/game`).set({
-                status: 'playing',
-                t1: { id: ids[0], name: teams[ids[0]].name },
-                t2: { id: ids[1], name: teams[ids[1]].name },
-                turn: ids[0],
-                score1: 0,
-                score2: 0,
-                hits: {},
-                misses: {},
-                ships: Array.from({length: 5}, () => Math.floor(Math.random() * 25))
-            });
+            const activeTeams = Object.keys(teams).filter(id => !teams[id].eliminated);
+            if(activeTeams.length < 2) {
+                alert("Necesitas al menos 2 equipos activos");
+                return;
+            }
+            
+            const shuffled = [...activeTeams].sort(() => Math.random() - 0.5);
+            const team1 = shuffled[0];
+            const team2 = shuffled[1];
+            
+            const newTournament = {
+                rounds: [[{ team1: team1, team2: team2, winner: null, team1Name: teams[team1].name, team2Name: teams[team2].name }]],
+                winners: [],
+                finalWinner: null
+            };
+            
+            db.ref(`rooms/${room}/tournament`).set(newTournament);
+            
+            startMatch(team1, team2, teams);
+        });
+    }
+
+    function startMatch(team1Id, team2Id, teams) {
+        const ships = [];
+        while(ships.length < 5) {
+            const pos = Math.floor(Math.random() * 25);
+            if(!ships.includes(pos)) ships.push(pos);
+        }
+        
+        db.ref(`rooms/${room}/game`).set({
+            status: 'playing',
+            t1: { id: team1Id, name: teams[team1Id].name },
+            t2: { id: team2Id, name: teams[team2Id].name },
+            turn: team1Id,
+            score1: 0,
+            score2: 0,
+            hits: {},
+            misses: {},
+            ships: ships,
+            round: tournamentData.rounds.length
         });
     }
 
     function updateUI(game) {
         if (!game) return;
         
+        const remainingTargets1 = 5 - (game.score1 || 0);
+        const remainingTargets2 = 5 - (game.score2 || 0);
+        
         document.getElementById('name1').innerText = game.t1.name;
         document.getElementById('name2').innerText = game.t2.name;
         document.getElementById('score1').innerText = game.score1 || 0;
         document.getElementById('score2').innerText = game.score2 || 0;
+        document.getElementById('targets1').innerHTML = `🎯 Objetivos restantes: ${remainingTargets1}`;
+        document.getElementById('targets2').innerHTML = `🎯 Objetivos restantes: ${remainingTargets2}`;
         
         const isMyTurn = (teamId === game.turn);
         const turnName = (game.turn === game.t1.id ? game.t1.name : game.t2.name);
         const indicator = document.getElementById('turnIndicator');
         
         if (isMyTurn) {
-            indicator.innerText = "¡TU TURNO!";
+            indicator.innerText = "🎯 ¡TU TURNO!";
+            indicator.style.background = "rgba(52,199,89,0.2)";
             indicator.style.color = "var(--hit)";
         } else {
-            indicator.innerText = "TURNO DE: " + turnName.toUpperCase();
+            indicator.innerText = "⏳ TURNO DE: " + turnName.toUpperCase();
+            indicator.style.background = "rgba(0,113,227,0.1)";
             indicator.style.color = "var(--primary)";
         }
 
@@ -237,20 +384,179 @@
             const col = i % 5;
             c.innerText = `${row},${col}`;
             
+            const alreadyPlayed = (game.hits && game.hits[i]) || (game.misses && game.misses[i]);
+            if(alreadyPlayed) c.classList.add("disabled");
+            
             c.onclick = (function(index) {
                 return function() { 
-                    if(isMyTurn && game.status === 'playing') {
+                    if(isMyTurn && game.status === 'playing' && !alreadyPlayed) {
                         sendMove(index, game); 
+                    } else if(alreadyPlayed) {
+                        alert("⚠️ Ya disparaste en esta posición");
+                    } else if(!isMyTurn) {
+                        alert("⏳ No es tu turno");
                     }
                 };
             })(i);
             
             grid.appendChild(c);
         }
+        
+        // Cambiar color de fondo según el equipo
+        const gameCard = document.getElementById('gameCard');
+        if(game.turn === teamId && myRole === 'team') {
+            gameCard.style.background = "rgba(52,199,89,0.1)";
+        } else if(myRole === 'team') {
+            gameCard.style.background = "rgba(0,113,227,0.05)";
+        }
+    }
+
+    function checkWinner(game) {
+        if(game.score1 >= 5) {
+            declareWinner(game.t1.id, game.t2.id, game);
+        } else if(game.score2 >= 5) {
+            declareWinner(game.t2.id, game.t1.id, game);
+        }
+    }
+
+    function declareWinner(winnerId, loserId, game) {
+        const updates = {};
+        updates[`rooms/${room}/game/status`] = 'finished';
+        updates[`rooms/${room}/game/winner`] = winnerId;
+        updates[`rooms/${room}/game/loser`] = loserId;
+        
+        db.ref().update(updates, () => {
+            showWinnerModal(winnerId === game.t1.id ? game.t1.name : game.t2.name);
+            updateTournamentBracket(winnerId, loserId);
+        });
+    }
+
+    function showWinnerModal(winnerName) {
+        const modal = document.createElement('div');
+        modal.className = 'winner-overlay';
+        modal.innerHTML = `
+            <div class="winner-card">
+                <h1>🏆 ¡VICTORIA! 🏆</h1>
+                <h2>${winnerName}</h2>
+                <p>¡Ha ganado la batalla!</p>
+                <button onclick="this.parentElement.parentElement.remove()">Continuar</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    function updateTournamentBracket(winnerId, loserId) {
+        db.ref(`rooms/${room}/teams/${loserId}/eliminated`).set(true);
+        
+        db.ref(`rooms/${room}/tournament`).once('value', snap => {
+            const tournament = snap.val();
+            if(tournament) {
+                const currentRound = tournament.rounds[tournament.rounds.length - 1];
+                for(let match of currentRound) {
+                    if(match.team1 === winnerId || match.team2 === winnerId) {
+                        match.winner = winnerId;
+                        break;
+                    }
+                }
+                
+                tournament.winners.push(winnerId);
+                db.ref(`rooms/${room}/tournament`).set(tournament);
+                
+                // Verificar si hay más equipos para la final
+                db.ref(`rooms/${room}/teams`).once('value', teamsSnap => {
+                    const teams = teamsSnap.val();
+                    const activeTeams = Object.keys(teams).filter(id => !teams[id].eliminated);
+                    
+                    if(activeTeams.length === 1) {
+                        // Torneo finalizado
+                        tournament.finalWinner = activeTeams[0];
+                        db.ref(`rooms/${room}/tournament`).set(tournament);
+                        showWinnerModal(teams[activeTeams[0]].name);
+                        document.getElementById('resetBtn').style.display = 'block';
+                    } else if(activeTeams.length >= 2 && tournament.winners.length >= 2) {
+                        // Siguiente ronda
+                        const nextTeams = tournament.winners.slice(-2);
+                        const nextMatch = {
+                            team1: nextTeams[0],
+                            team2: nextTeams[1],
+                            winner: null,
+                            team1Name: teams[nextTeams[0]].name,
+                            team2Name: teams[nextTeams[1]].name
+                        };
+                        tournament.rounds.push([nextMatch]);
+                        db.ref(`rooms/${room}/tournament`).set(tournament);
+                        startMatch(nextTeams[0], nextTeams[1], teams);
+                    }
+                });
+            }
+        });
+    }
+
+    function handleGameFinished(game) {
+        if(myRole === 'team') {
+            setTimeout(() => {
+                showScreen('teamScreen');
+                alert("El juego ha terminado. Esperando siguiente ronda...");
+            }, 2000);
+        }
+    }
+
+    function loadTournamentHistory() {
+        const bracketDiv = document.getElementById('tournamentBracket');
+        if(!bracketDiv) return;
+        
+        db.ref(`rooms/${room}/tournament`).once('value', snap => {
+            const tournament = snap.val();
+            if(!tournament || !tournament.rounds) {
+                bracketDiv.innerHTML = '<p>No hay torneo en curso</p>';
+                return;
+            }
+            
+            let html = '';
+            tournament.rounds.forEach((round, roundIndex) => {
+                html += `<div class="round"><strong>🏅 Ronda ${roundIndex + 1}</strong>`;
+                round.forEach(match => {
+                    const winner = match.winner;
+                    html += `<div class="match">
+                        <div>
+                            <span class="team-color-badge" style="background: ${teamColors[0]}"></span>
+                            <span class="${winner === match.team1 ? 'winner-team' : (match.winner ? 'loser-team' : '')}">${match.team1Name || '???'}</span>
+                        </div>
+                        <div>VS</div>
+                        <div>
+                            <span class="team-color-badge" style="background: ${teamColors[1]}"></span>
+                            <span class="${winner === match.team2 ? 'winner-team' : (match.winner ? 'loser-team' : '')}">${match.team2Name || '???'}</span>
+                        </div>
+                    </div>`;
+                });
+                html += `</div>`;
+            });
+            
+            if(tournament.finalWinner) {
+                db.ref(`rooms/${room}/teams/${tournament.finalWinner}`).once('value', snap => {
+                    const winnerTeam = snap.val();
+                    html += `<div class="round" style="background: linear-gradient(135deg, #ffd700, #ff8c00); color: white;">
+                        <strong>🏆 CAMPEÓN: ${winnerTeam?.name || '???'} 🏆</strong>
+                    </div>`;
+                    bracketDiv.innerHTML = html;
+                });
+            } else {
+                bracketDiv.innerHTML = html;
+            }
+        });
+    }
+
+    function resetTournament() {
+        if(confirm("¿Resetear todo el torneo? Esto eliminará todos los equipos y el progreso.")) {
+            db.ref(`rooms/${room}`).remove();
+            tournamentData = { rounds: [], winners: [], finalWinner: null };
+            document.getElementById('resetBtn').style.display = 'none';
+            document.getElementById('startBtn').style.display = 'none';
+            alert("Torneo reseteado");
+        }
     }
 
     function sendMove(idx, game) {
-        // Verificar si ya fue golpeado o fallado antes
         if ((game.hits && game.hits[idx]) || (game.misses && game.misses[idx])) {
             alert("¡Ya disparaste aquí!");
             return;
@@ -267,12 +573,6 @@
         } else {
             updates[path + 'misses/' + idx] = true;
         }
-        
-        updates[path + 'lastMove'] = {
-            player: game.turn,
-            position: idx,
-            result: isHit ? 'hit' : 'miss'
-        };
         
         updates[path + 'turn'] = (game.turn === game.t1.id ? game.t2.id : game.t1.id);
         
