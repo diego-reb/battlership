@@ -37,6 +37,7 @@
         button { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 12px; font-weight: 600; cursor: pointer; width: 92%; margin: 5px auto; transition: transform 0.2s; }
         button:hover { transform: scale(0.98); }
         button:active { transform: scale(0.95); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         
         .admin-section { border-top: 1px solid #d2d2d7; margin-top: 20px; padding-top: 20px; }
         .team-item { padding: 12px; border-radius: 10px; margin-bottom: 8px; color: white; font-weight: 700; text-align: center; }
@@ -137,11 +138,13 @@
             display: flex;
             gap: 10px;
             margin-top: 15px;
+            flex-wrap: wrap;
         }
 
         .control-buttons button {
             flex: 1;
             margin: 0;
+            min-width: 120px;
         }
 
         .danger-btn {
@@ -166,6 +169,31 @@
             color: var(--text);
             opacity: 0.7;
             margin-top: 5px;
+        }
+
+        .registered-message {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 10px;
+            border-radius: 10px;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .selection-box {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .selection-box select {
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #d2d2d7;
+            font-size: 1rem;
+            width: 90%;
+            margin: 10px 0;
         }
     </style>
 </head>
@@ -193,8 +221,11 @@
         <div class="room-info" id="displayRoom">Sala: BATALLA2026</div>
         <div class="card">
             <input type="text" id="teamNameInput" placeholder="Nombre del Equipo">
-            <button onclick="registerTeam()">Registrar Equipo</button>
-            <p id="waitMsg" style="display:none; color: var(--hit); font-weight: 600;">Registrado! Esperando a que el Admin inicie el torneo.</p>
+            <button id="registerBtn" onclick="registerTeam()">Registrar Equipo</button>
+            <div id="registeredMessage" style="display:none;" class="registered-message">
+                Equipo registrado exitosamente!
+                <p style="font-size:0.8rem; margin-top:5px;">Esperando a que el Admin inicie el torneo.</p>
+            </div>
         </div>
     </div>
 
@@ -207,11 +238,23 @@
             </div>
             <p style="font-weight: 600; margin-top: 20px;">Equipos Registrados:</p>
             <div id="teamList"></div>
-            <div class="control-buttons">
-                <button id="startBtn" onclick="startTournament()" style="display:none; background: var(--hit)">Iniciar Torneo</button>
-                <button id="resetBtn" onclick="resetTournament()" style="display:none; background: var(--miss)">Reiniciar Todo</button>
+            
+            <div class="selection-box">
+                <label style="font-weight: 600;">Seleccionar Equipos para Partida:</label>
+                <select id="teamSelect1">
+                    <option value="">Seleccionar Equipo 1</option>
+                </select>
+                <select id="teamSelect2">
+                    <option value="">Seleccionar Equipo 2</option>
+                </select>
+                <button id="selectMatchBtn" onclick="startSelectedMatch()" style="background: var(--primary)">Iniciar Partida Seleccionada</button>
             </div>
-            <button id="newGameBtn" onclick="forceNewGame()" style="display:none; background: var(--primary)">Forzar Nueva Partida</button>
+            
+            <div class="control-buttons">
+                <button id="startBtn" onclick="startRandomTournament()" style="display:none; background: var(--hit)">Iniciar Torneo Aleatorio</button>
+                <button id="resetGameBtn" onclick="resetCurrentGame()" style="display:none; background: var(--primary)">Reiniciar Partida</button>
+                <button id="resetAllBtn" onclick="resetTournament()" style="display:none; background: var(--miss)">Reiniciar Todo</button>
+            </div>
         </div>
     </div>
 
@@ -260,6 +303,7 @@
     let myRole = "";
     let teamId = "";
     let currentGame = null;
+    let isRegistered = false;
     
     const teamColors = ["#0071e3", "#af52de", "#ff9500", "#ff2d55", "#5856d6", "#34c759", "#ffcc00", "#5ac8fa"];
     
@@ -285,26 +329,67 @@
         }
 
         myRole = role;
+        
+        if(role === 'team') {
+            // Resetear estado de registro al entrar a la pantalla de equipo
+            isRegistered = false;
+            document.getElementById('teamNameInput').style.display = 'block';
+            document.getElementById('teamNameInput').value = '';
+            document.getElementById('registerBtn').style.display = 'block';
+            document.getElementById('registeredMessage').style.display = 'none';
+            document.getElementById('registerBtn').disabled = false;
+        }
+        
         showScreen(role === 'admin' ? 'adminScreen' : 'teamScreen');
         initializeRoom();
         listenToRoom();
+        
+        if(role === 'admin') {
+            loadTeamSelectors();
+        }
     }
 
     function registerTeam() {
+        if(isRegistered) {
+            alert("Tu equipo ya está registrado. Solo puedes registrarte una vez.");
+            return;
+        }
+        
         const name = document.getElementById('teamNameInput').value;
         if(!name) {
             alert("Por favor ingresa un nombre para el equipo");
             return;
         }
-        teamId = 'team_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-        db.ref(`rooms/${room}/teams/${teamId}`).set({ 
-            name: name, 
-            score: 0, 
-            eliminated: false,
-            registeredAt: Date.now()
+        
+        // Verificar si ya existe un equipo con ese nombre en la sala
+        db.ref(`rooms/${room}/teams`).once('value', snap => {
+            const teams = snap.val() || {};
+            let nameExists = false;
+            Object.values(teams).forEach(team => {
+                if(team.name === name) {
+                    nameExists = true;
+                }
+            });
+            
+            if(nameExists) {
+                alert("Ya existe un equipo con ese nombre. Por favor elige otro.");
+                return;
+            }
+            
+            teamId = 'team_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            db.ref(`rooms/${room}/teams/${teamId}`).set({ 
+                name: name, 
+                score: 0, 
+                eliminated: false,
+                registeredAt: Date.now()
+            }).then(() => {
+                isRegistered = true;
+                localStorage.setItem(`registered_${room}`, teamId);
+                document.getElementById('teamNameInput').style.display = 'none';
+                document.getElementById('registerBtn').style.display = 'none';
+                document.getElementById('registeredMessage').style.display = 'block';
+            });
         });
-        document.getElementById('teamNameInput').style.display = 'none';
-        document.getElementById('waitMsg').style.display = 'block';
     }
 
     function listenToRoom() {
@@ -327,8 +412,11 @@
                     list.appendChild(div);
                     index++;
                 });
+            }
+            if(myRole === 'admin') {
+                loadTeamSelectors();
                 const activeTeams = Object.keys(teams).filter(id => !teams[id].eliminated).length;
-                if(myRole === 'admin' && activeTeams >= 2) {
+                if(activeTeams >= 2) {
                     document.getElementById('startBtn').style.display = 'block';
                 }
             }
@@ -348,15 +436,70 @@
                 showScreen('gameScreen');
                 updateUI(game);
                 checkWinner(game);
+                if(myRole === 'admin') {
+                    document.getElementById('resetGameBtn').style.display = 'block';
+                }
             } else if(game && game.status === 'finished') {
                 handleGameFinished(game);
+                if(myRole === 'admin') {
+                    document.getElementById('resetGameBtn').style.display = 'block';
+                }
             } else if(myRole === 'admin' && (!game || game.status === 'finished')) {
-                document.getElementById('newGameBtn').style.display = 'block';
+                document.getElementById('resetGameBtn').style.display = 'block';
             }
         });
     }
 
-    function startTournament() {
+    function loadTeamSelectors() {
+        db.ref(`rooms/${room}/teams`).once('value', snap => {
+            const teams = snap.val() || {};
+            const activeTeams = Object.keys(teams).filter(id => !teams[id].eliminated);
+            
+            const select1 = document.getElementById('teamSelect1');
+            const select2 = document.getElementById('teamSelect2');
+            
+            if(select1 && select2) {
+                select1.innerHTML = '<option value="">Seleccionar Equipo 1</option>';
+                select2.innerHTML = '<option value="">Seleccionar Equipo 2</option>';
+                
+                activeTeams.forEach(id => {
+                    const option1 = document.createElement('option');
+                    option1.value = id;
+                    option1.textContent = teams[id].name;
+                    select1.appendChild(option1);
+                    
+                    const option2 = document.createElement('option');
+                    option2.value = id;
+                    option2.textContent = teams[id].name;
+                    select2.appendChild(option2);
+                });
+            }
+        });
+    }
+
+    function startSelectedMatch() {
+        const team1Id = document.getElementById('teamSelect1').value;
+        const team2Id = document.getElementById('teamSelect2').value;
+        
+        if(!team1Id || !team2Id) {
+            alert("Por favor selecciona ambos equipos");
+            return;
+        }
+        
+        if(team1Id === team2Id) {
+            alert("Debes seleccionar dos equipos diferentes");
+            return;
+        }
+        
+        db.ref(`rooms/${room}/teams`).once('value', snap => {
+            const teams = snap.val();
+            startMatch(team1Id, team2Id, teams);
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('resetGameBtn').style.display = 'block';
+        });
+    }
+
+    function startRandomTournament() {
         db.ref(`rooms/${room}/teams`).once('value', snap => {
             const teams = snap.val();
             const activeTeams = Object.keys(teams).filter(id => !teams[id].eliminated);
@@ -409,6 +552,17 @@
             startedAt: Date.now(),
             totalShotsMade: 0
         });
+    }
+
+    function resetCurrentGame() {
+        if(confirm("¿Reiniciar la partida actual? Se perderá el progreso de esta partida.")) {
+            db.ref(`rooms/${room}/game`).remove().then(() => {
+                alert("Partida reiniciada. Puedes iniciar una nueva.");
+                if(myRole === 'admin') {
+                    loadTeamSelectors();
+                }
+            });
+        }
     }
 
     function updateUI(game) {
@@ -493,16 +647,13 @@
         const score1 = game.score1 || 0;
         const score2 = game.score2 || 0;
         
-        // Verificar si alguien llegó a 5 objetivos
         if(score1 >= 5) {
             declareWinner(game.t1.id, game.t2.id, game);
         } 
         else if(score2 >= 5) {
             declareWinner(game.t2.id, game.t1.id, game);
         }
-        // Verificar si se completaron los 5 disparos totales
         else if(totalShots >= 5) {
-            // Determinar ganador por mayor cantidad de objetivos
             if(score1 > score2) {
                 declareWinner(game.t1.id, game.t2.id, game);
             } 
@@ -510,8 +661,6 @@
                 declareWinner(game.t2.id, game.t1.id, game);
             }
             else {
-                // En caso de empate, el equipo que está jugando actualmente pierde? o se hace un desempate
-                // Por ahora, el que hizo el último disparo pierde
                 const lastPlayer = game.lastPlayer;
                 if(lastPlayer === game.t1.id) {
                     declareWinner(game.t2.id, game.t1.id, game);
@@ -560,7 +709,7 @@
     function closeWinnerModal(button) {
         button.closest('.winner-overlay').remove();
         if(myRole === 'admin') {
-            document.getElementById('newGameBtn').style.display = 'block';
+            document.getElementById('resetGameBtn').style.display = 'block';
         }
     }
 
@@ -590,8 +739,8 @@
                         db.ref(`rooms/${room}/tournament`).set(tournament);
                         const finalWinnerName = teams[activeTeams[0]].name;
                         showWinnerModal(finalWinnerName, 0, "", 0);
-                        document.getElementById('resetBtn').style.display = 'block';
-                        document.getElementById('newGameBtn').style.display = 'none';
+                        document.getElementById('resetAllBtn').style.display = 'block';
+                        document.getElementById('resetGameBtn').style.display = 'block';
                     } else if(activeTeams.length >= 2 && tournament.winners.length >= 2) {
                         const nextTeams = tournament.winners.slice(-2);
                         const nextMatch = {
@@ -617,22 +766,6 @@
                 alert("Juego terminado. Esperando siguiente ronda...");
             }, 3000);
         }
-    }
-
-    function forceNewGame() {
-        db.ref(`rooms/${room}/teams`).once('value', snap => {
-            const teams = snap.val();
-            const activeTeams = Object.keys(teams).filter(id => !teams[id].eliminated);
-            
-            if(activeTeams.length >= 2) {
-                const team1 = activeTeams[0];
-                const team2 = activeTeams[1];
-                startMatch(team1, team2, teams);
-                document.getElementById('newGameBtn').style.display = 'none';
-            } else {
-                alert("Se necesitan al menos 2 equipos activos para iniciar una nueva partida");
-            }
-        });
     }
 
     function loadTournamentHistory() {
@@ -685,12 +818,13 @@
             db.ref(`rooms/${room}`).remove().then(() => {
                 setTimeout(() => {
                     initializeRoom();
-                    document.getElementById('resetBtn').style.display = 'none';
+                    document.getElementById('resetAllBtn').style.display = 'none';
+                    document.getElementById('resetGameBtn').style.display = 'none';
                     document.getElementById('startBtn').style.display = 'none';
-                    document.getElementById('newGameBtn').style.display = 'none';
                     document.getElementById('tournamentBracket').innerHTML = '<p>No hay torneo activo</p>';
                     document.getElementById('teamList').innerHTML = '';
                     alert("El torneo ha sido reiniciado completamente");
+                    loadTeamSelectors();
                 }, 500);
             }).catch(error => {
                 console.error("Error al reiniciar:", error);
@@ -732,9 +866,6 @@
     }
 
     window.closeWinnerModal = closeWinnerModal;
-    window.forceNewGame = forceNewGame;
-    
-    initializeRoom();
-</script>
-</body>
-</html>
+    window.startSelectedMatch = startSelectedMatch;
+    window.startRandomTournament = startRandomTournament;
+    window.resetCurrentGame = reset
