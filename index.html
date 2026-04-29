@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Event Matrix - Secure Tournament</title>
+    <title>Battleship- Secure Tournament</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
@@ -107,15 +107,26 @@
     // CONFIGURACION DE SEGURIDAD
     const MASTER_KEY = "ZAID2026"; // <--- CAMBIA TU CONTRASEÑA AQUI
 
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
     const firebaseConfig = {
-        apiKey: "TU_API_KEY",
-        authDomain: "TU_PROYECTO.firebaseapp.com",
-        databaseURL: "https://TU_PROYECTO.firebaseio.com",
-        projectId: "TU_PROYECTO",
-        storageBucket: "TU_PROYECTO.appspot.com",
-        messagingSenderId: "ID",
-        appId: "APP_ID"
+    apiKey: "AIzaSyCaAkVBDYuqwOpSfoJjkXN6trR5NwvSNn0",
+    authDomain: "expos-19452.firebaseapp.com",
+    databaseURL: "https://expos-19452-default-rtdb.firebaseio.com",
+    projectId: "expos-19452",
+    storageBucket: "expos-19452.firebasestorage.app",
+    messagingSenderId: "76291192275",
+    appId: "1:76291192275:web:2bbca3f35a6b525eeeab26",
+    measurementId: "G-PXKL2KEG7Z"
     };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
