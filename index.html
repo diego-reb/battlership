@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Battleship- Secure Tournament</title>
+    <title>Battleship - Secure Tournament</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
@@ -105,29 +105,21 @@
 
 <script>
     // CONFIGURACION DE SEGURIDAD
-    const MASTER_KEY = "ZAID2026"; // <--- CAMBIA TU CONTRASEÑA AQUI
+    const MASTER_KEY = "ZAID2026";
 
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
+    // Configuración de Firebase
     const firebaseConfig = {
-    apiKey: "AIzaSyCaAkVBDYuqwOpSfoJjkXN6trR5NwvSNn0",
-    authDomain: "expos-19452.firebaseapp.com",
-    databaseURL: "https://expos-19452-default-rtdb.firebaseio.com",
-    projectId: "expos-19452",
-    storageBucket: "expos-19452.firebasestorage.app",
-    messagingSenderId: "76291192275",
-    appId: "1:76291192275:web:2bbca3f35a6b525eeeab26",
-    measurementId: "G-PXKL2KEG7Z"
+        apiKey: "AIzaSyCaAkVBDYuqwOpSfoJjkXN6trR5NwvSNn0",
+        authDomain: "expos-19452.firebaseapp.com",
+        databaseURL: "https://expos-19452-default-rtdb.firebaseio.com",
+        projectId: "expos-19452",
+        storageBucket: "expos-19452.firebasestorage.app",
+        messagingSenderId: "76291192275",
+        appId: "1:76291192275:web:2bbca3f35a6b525eeeab26",
+        measurementId: "G-PXKL2KEG7Z"
     };
 
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(app);
-
+    // Inicializar Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     
@@ -153,7 +145,10 @@ import { getAnalytics } from "firebase/analytics";
 
     function registerTeam() {
         const name = document.getElementById('teamNameInput').value;
-        if(!name) return;
+        if(!name) {
+            alert("Por favor ingresa un nombre para el equipo");
+            return;
+        }
         teamId = 't_' + Math.random().toString(36).substr(2, 5);
         db.ref(`rooms/${room}/teams/${teamId}`).set({ name: name, score: 0 });
         document.getElementById('teamNameInput').style.display = 'none';
@@ -166,14 +161,18 @@ import { getAnalytics } from "firebase/analytics";
             const list = document.getElementById('teamList');
             if(list) {
                 list.innerHTML = "";
-                Object.keys(teams).forEach((id, idx) => {
+                let index = 0;
+                Object.keys(teams).forEach((id) => {
                     const div = document.createElement('div');
                     div.className = "team-item";
-                    div.style.background = teamColors[idx % teamColors.length];
+                    div.style.background = teamColors[index % teamColors.length];
                     div.innerText = teams[id].name;
                     list.appendChild(div);
+                    index++;
                 });
-                if(myRole === 'admin' && Object.keys(teams).length >= 2) document.getElementById('startBtn').style.display = 'block';
+                if(myRole === 'admin' && Object.keys(teams).length >= 2) {
+                    document.getElementById('startBtn').style.display = 'block';
+                }
             }
         });
 
@@ -197,51 +196,93 @@ import { getAnalytics } from "firebase/analytics";
                 turn: ids[0],
                 score1: 0,
                 score2: 0,
+                hits: {},
+                misses: {},
                 ships: Array.from({length: 5}, () => Math.floor(Math.random() * 25))
             });
         });
     }
 
     function updateUI(game) {
+        if (!game) return;
+        
         document.getElementById('name1').innerText = game.t1.name;
         document.getElementById('name2').innerText = game.t2.name;
-        document.getElementById('score1').innerText = game.score1;
-        document.getElementById('score2').innerText = game.score2;
+        document.getElementById('score1').innerText = game.score1 || 0;
+        document.getElementById('score2').innerText = game.score2 || 0;
         
         const isMyTurn = (teamId === game.turn);
         const turnName = (game.turn === game.t1.id ? game.t1.name : game.t2.name);
         const indicator = document.getElementById('turnIndicator');
-        indicator.innerText = isMyTurn ? "¡TU TURNO!" : "TURNO DE: " + turnName.toUpperCase();
-        indicator.style.color = isMyTurn ? "var(--hit)" : "var(--primary)";
+        
+        if (isMyTurn) {
+            indicator.innerText = "¡TU TURNO!";
+            indicator.style.color = "var(--hit)";
+        } else {
+            indicator.innerText = "TURNO DE: " + turnName.toUpperCase();
+            indicator.style.color = "var(--primary)";
+        }
 
         const grid = document.getElementById('gameGrid');
+        if (!grid) return;
+        
         grid.innerHTML = "";
-        for(let i=0; i<25; i++) {
+        for(let i = 0; i < 25; i++) {
             const c = document.createElement('div');
-            c.className = "cell" + (game.hits?.[i] ? " hit" : "") + (game.misses?.[i] ? " miss" : "");
-            c.innerText = `${Math.floor(i/5)},${i%5}`;
-            c.onclick = () => { if(isMyTurn) sendMove(i, game); };
+            c.className = "cell";
+            if (game.hits && game.hits[i]) c.classList.add("hit");
+            if (game.misses && game.misses[i]) c.classList.add("miss");
+            
+            const row = Math.floor(i / 5);
+            const col = i % 5;
+            c.innerText = `${row},${col}`;
+            
+            c.onclick = (function(index) {
+                return function() { 
+                    if(isMyTurn && game.status === 'playing') {
+                        sendMove(index, game); 
+                    }
+                };
+            })(i);
+            
             grid.appendChild(c);
         }
     }
 
     function sendMove(idx, game) {
-        const isHit = game.ships.includes(idx);
-        const up = {};
-        const path = `rooms/${room}/game/`;
-        if(isHit) {
-            up[path + 'hits/' + idx] = true;
-            up[path + (game.turn === game.t1.id ? 'score1' : 'score2')] = (game.turn === game.t1.id ? game.score1 : game.score2) + 1;
-        } else {
-            up[path + 'misses/' + idx] = true;
+        // Verificar si ya fue golpeado o fallado antes
+        if ((game.hits && game.hits[idx]) || (game.misses && game.misses[idx])) {
+            alert("¡Ya disparaste aquí!");
+            return;
         }
-        up[path + 'turn'] = (game.turn === game.t1.id ? game.t2.id : game.t1.id);
-        db.ref().update(up);
+        
+        const isHit = game.ships.includes(idx);
+        const updates = {};
+        const path = `rooms/${room}/game/`;
+        
+        if(isHit) {
+            updates[path + 'hits/' + idx] = true;
+            const newScore = (game.turn === game.t1.id ? (game.score1 || 0) : (game.score2 || 0)) + 1;
+            updates[path + (game.turn === game.t1.id ? 'score1' : 'score2')] = newScore;
+        } else {
+            updates[path + 'misses/' + idx] = true;
+        }
+        
+        updates[path + 'lastMove'] = {
+            player: game.turn,
+            position: idx,
+            result: isHit ? 'hit' : 'miss'
+        };
+        
+        updates[path + 'turn'] = (game.turn === game.t1.id ? game.t2.id : game.t1.id);
+        
+        db.ref().update(updates);
     }
 
     function showScreen(id) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
+        const screen = document.getElementById(id);
+        if (screen) screen.classList.add('active');
     }
 </script>
 </body>
