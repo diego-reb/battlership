@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Matrix - Secure Tournament</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --bg: #f5f5f7;
+            --card: #ffffff;
+            --primary: #0071e3;
+            --hit: #34c759;
+            --miss: #ff3b30;
+            --text: #1d1d1f;
+        }
+
+        body {
+            font-family: -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container { width: 100%; max-width: 450px; text-align: center; }
+        .screen { display: none; flex-direction: column; gap: 20px; }
+        .active { display: flex; }
+
+        .card { background: var(--card); padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        
+        input { padding: 12px; border-radius: 10px; border: 1px solid #d2d2d7; font-size: 1rem; width: 85%; margin: 8px auto; display: block; }
+        button { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 12px; font-weight: 600; cursor: pointer; width: 92%; margin: 5px auto; }
+        
+        .admin-section { border-top: 1px solid #d2d2d7; margin-top: 20px; padding-top: 20px; }
+        .team-item { padding: 12px; border-radius: 10px; margin-bottom: 8px; color: white; font-weight: 700; text-align: center; }
+
+        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 20px; }
+        .cell { aspect-ratio: 1/1; background: #e5e5ea; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; cursor: pointer; transition: 0.3s; font-weight: bold; color: #8e8e93; }
+        .cell.hit { background: var(--hit) !important; color: white; transform: scale(0.9); }
+        .cell.miss { background: var(--miss) !important; color: white; }
+
+        .vs-container { display: flex; justify-content: space-around; align-items: center; margin: 15px 0; }
+        .score-box { font-size: 2.5rem; font-weight: 800; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="roleScreen" class="screen active">
+        <h1>Coordinate Strike</h1>
+        <div class="card">
+            <label style="font-size: 0.8rem; font-weight: 600;">CODIGO DE SALA</label>
+            <input type="text" id="roomCode" placeholder="EJ: CLASE123">
+            
+            <button onclick="setRole('team')" style="background:#5856d6">Unirse como Equipo</button>
+
+            <div class="admin-section">
+                <label style="font-size: 0.8rem; font-weight: 600;">ACCESO ADMINISTRADOR</label>
+                <input type="password" id="adminKey" placeholder="Clave Maestra">
+                <button onclick="setRole('admin')" style="background:var(--text)">Acceder como Admin</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="teamScreen" class="screen">
+        <h2 id="displayRoom">SALA: --</h2>
+        <div class="card">
+            <input type="text" id="teamNameInput" placeholder="Nombre del Equipo">
+            <button onclick="registerTeam()">Registrar</button>
+            <p id="waitMsg" style="display:none; color: var(--primary); font-weight: 600;">¡Registrado! Espera a que el Admin inicie.</p>
+        </div>
+    </div>
+
+    <div id="adminScreen" class="screen">
+        <h1>Panel Admin</h1>
+        <div class="card">
+            <p style="font-weight: 600;">Equipos en espera:</p>
+            <div id="teamList"></div>
+            <button id="startBtn" onclick="startTournament()" style="display:none; background: var(--hit)">Iniciar Match Aleatorio</button>
+        </div>
+    </div>
+
+    <div id="gameScreen" class="screen">
+        <div class="card">
+            <div class="vs-container">
+                <div id="t1Display">
+                    <div id="name1" style="font-weight: 700;">--</div>
+                    <div class="score-box" id="score1">0</div>
+                </div>
+                <div style="font-weight: 900; opacity: 0.3;">VS</div>
+                <div id="t2Display">
+                    <div id="name2" style="font-weight: 700;">--</div>
+                    <div class="score-box" id="score2">0</div>
+                </div>
+            </div>
+            <div id="turnIndicator" style="font-weight: 700;">ESPERANDO MOVIMIENTO...</div>
+        </div>
+        <div class="grid" id="gameGrid"></div>
+    </div>
+</div>
+
+<script>
+    // CONFIGURACION DE SEGURIDAD
+    const MASTER_KEY = "ZAID2026"; // <--- CAMBIA TU CONTRASEÑA AQUI
+
+    const firebaseConfig = {
+        apiKey: "TU_API_KEY",
+        authDomain: "TU_PROYECTO.firebaseapp.com",
+        databaseURL: "https://TU_PROYECTO.firebaseio.com",
+        projectId: "TU_PROYECTO",
+        storageBucket: "TU_PROYECTO.appspot.com",
+        messagingSenderId: "ID",
+        appId: "APP_ID"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    
+    let room = "";
+    let myRole = "";
+    let teamId = "";
+    const teamColors = ["#0071e3", "#af52de", "#ff9500", "#ff2d55", "#5856d6", "#34c759", "#ffcc00", "#5ac8fa"];
+
+    function setRole(role) {
+        room = document.getElementById('roomCode').value.toUpperCase();
+        if(!room) return alert("Ingresa el código de la sala");
+
+        if(role === 'admin') {
+            const pass = document.getElementById('adminKey').value;
+            if(pass !== MASTER_KEY) return alert("Clave de administrador incorrecta");
+        }
+
+        myRole = role;
+        showScreen(role === 'admin' ? 'adminScreen' : 'teamScreen');
+        if(role === 'team') document.getElementById('displayRoom').innerText = "SALA: " + room;
+        listenToRoom();
+    }
+
+    function registerTeam() {
+        const name = document.getElementById('teamNameInput').value;
+        if(!name) return;
+        teamId = 't_' + Math.random().toString(36).substr(2, 5);
+        db.ref(`rooms/${room}/teams/${teamId}`).set({ name: name, score: 0 });
+        document.getElementById('teamNameInput').style.display = 'none';
+        document.getElementById('waitMsg').style.display = 'block';
+    }
+
+    function listenToRoom() {
+        db.ref(`rooms/${room}/teams`).on('value', snap => {
+            const teams = snap.val() || {};
+            const list = document.getElementById('teamList');
+            if(list) {
+                list.innerHTML = "";
+                Object.keys(teams).forEach((id, idx) => {
+                    const div = document.createElement('div');
+                    div.className = "team-item";
+                    div.style.background = teamColors[idx % teamColors.length];
+                    div.innerText = teams[id].name;
+                    list.appendChild(div);
+                });
+                if(myRole === 'admin' && Object.keys(teams).length >= 2) document.getElementById('startBtn').style.display = 'block';
+            }
+        });
+
+        db.ref(`rooms/${room}/game`).on('value', snap => {
+            const game = snap.val();
+            if(game && game.status === 'playing') {
+                showScreen('gameScreen');
+                updateUI(game);
+            }
+        });
+    }
+
+    function startTournament() {
+        db.ref(`rooms/${room}/teams`).once('value', snap => {
+            const teams = snap.val();
+            const ids = Object.keys(teams).sort(() => Math.random() - 0.5);
+            db.ref(`rooms/${room}/game`).set({
+                status: 'playing',
+                t1: { id: ids[0], name: teams[ids[0]].name },
+                t2: { id: ids[1], name: teams[ids[1]].name },
+                turn: ids[0],
+                score1: 0,
+                score2: 0,
+                ships: Array.from({length: 5}, () => Math.floor(Math.random() * 25))
+            });
+        });
+    }
+
+    function updateUI(game) {
+        document.getElementById('name1').innerText = game.t1.name;
+        document.getElementById('name2').innerText = game.t2.name;
+        document.getElementById('score1').innerText = game.score1;
+        document.getElementById('score2').innerText = game.score2;
+        
+        const isMyTurn = (teamId === game.turn);
+        const turnName = (game.turn === game.t1.id ? game.t1.name : game.t2.name);
+        const indicator = document.getElementById('turnIndicator');
+        indicator.innerText = isMyTurn ? "¡TU TURNO!" : "TURNO DE: " + turnName.toUpperCase();
+        indicator.style.color = isMyTurn ? "var(--hit)" : "var(--primary)";
+
+        const grid = document.getElementById('gameGrid');
+        grid.innerHTML = "";
+        for(let i=0; i<25; i++) {
+            const c = document.createElement('div');
+            c.className = "cell" + (game.hits?.[i] ? " hit" : "") + (game.misses?.[i] ? " miss" : "");
+            c.innerText = `${Math.floor(i/5)},${i%5}`;
+            c.onclick = () => { if(isMyTurn) sendMove(i, game); };
+            grid.appendChild(c);
+        }
+    }
+
+    function sendMove(idx, game) {
+        const isHit = game.ships.includes(idx);
+        const up = {};
+        const path = `rooms/${room}/game/`;
+        if(isHit) {
+            up[path + 'hits/' + idx] = true;
+            up[path + (game.turn === game.t1.id ? 'score1' : 'score2')] = (game.turn === game.t1.id ? game.score1 : game.score2) + 1;
+        } else {
+            up[path + 'misses/' + idx] = true;
+        }
+        up[path + 'turn'] = (game.turn === game.t1.id ? game.t2.id : game.t1.id);
+        db.ref().update(up);
+    }
+
+    function showScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+</script>
+</body>
+</html>
