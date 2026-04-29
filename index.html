@@ -18,7 +18,7 @@
         }
 
         body {
-            font-family: -apple-system, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background: var(--bg);
             color: var(--text);
             margin: 0;
@@ -36,13 +36,14 @@
         input { padding: 12px; border-radius: 10px; border: 1px solid #d2d2d7; font-size: 1rem; width: 85%; margin: 8px auto; display: block; }
         button { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 12px; font-weight: 600; cursor: pointer; width: 92%; margin: 5px auto; transition: transform 0.2s; }
         button:hover { transform: scale(0.98); }
+        button:active { transform: scale(0.95); }
         
         .admin-section { border-top: 1px solid #d2d2d7; margin-top: 20px; padding-top: 20px; }
         .team-item { padding: 12px; border-radius: 10px; margin-bottom: 8px; color: white; font-weight: 700; text-align: center; }
 
         .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 20px; }
-        .cell { aspect-ratio: 1/1; background: #e5e5ea; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; cursor: pointer; transition: 0.3s; font-weight: bold; color: #8e8e93; }
-        .cell.hit { background: var(--hit) !important; color: white; transform: scale(0.9); }
+        .cell { aspect-ratio: 1/1; background: #e5e5ea; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; cursor: pointer; transition: 0.3s; font-weight: bold; color: #8e8e93; }
+        .cell.hit { background: var(--hit) !important; color: white; transform: scale(0.95); }
         .cell.miss { background: var(--miss) !important; color: white; }
         .cell.disabled { cursor: not-allowed; opacity: 0.6; }
 
@@ -55,7 +56,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0,0,0,0.9);
+            background: rgba(0,0,0,0.95);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -93,6 +94,8 @@
             border-radius: 15px;
             padding: 15px;
             margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
         }
         .tournament-table h3 { margin: 0 0 10px 0; }
         .round {
@@ -132,47 +135,69 @@
             font-weight: 600;
             margin-top: 10px;
         }
+
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .control-buttons button {
+            flex: 1;
+            margin: 0;
+        }
+
+        .danger-btn {
+            background: var(--miss);
+        }
+
+        .success-btn {
+            background: var(--hit);
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div id="roleScreen" class="screen active">
-        <h1>🎯 Coordinate Strike</h1>
+        <h1>Battleship Tournament</h1>
         <div class="card">
-            <label style="font-size: 0.8rem; font-weight: 600;">CODIGO DE SALA</label>
-            <input type="text" id="roomCode" placeholder="EJ: CLASE123">
+            <label style="font-size: 0.8rem; font-weight: 600;">ROOM CODE</label>
+            <input type="text" id="roomCode" placeholder="Ej: CLASE123">
             
-            <button onclick="setRole('team')" style="background:#5856d6">🚩 Unirse como Equipo</button>
+            <button onclick="setRole('team')" style="background:#5856d6">Join as Team</button>
 
             <div class="admin-section">
-                <label style="font-size: 0.8rem; font-weight: 600;">🔐 ACCESO ADMINISTRADOR</label>
-                <input type="password" id="adminKey" placeholder="Clave Maestra">
-                <button onclick="setRole('admin')" style="background:var(--text)">👑 Acceder como Admin</button>
+                <label style="font-size: 0.8rem; font-weight: 600;">ADMIN ACCESS</label>
+                <input type="password" id="adminKey" placeholder="Master Key">
+                <button onclick="setRole('admin')" style="background:var(--text)">Access as Admin</button>
             </div>
         </div>
     </div>
 
     <div id="teamScreen" class="screen">
-        <h2 id="displayRoom">SALA: --</h2>
+        <h2 id="displayRoom">Room: --</h2>
         <div class="card">
-            <input type="text" id="teamNameInput" placeholder="Nombre del Equipo">
-            <button onclick="registerTeam()">📝 Registrar Equipo</button>
-            <p id="waitMsg" style="display:none; color: var(--hit); font-weight: 600;">✅ ¡Registrado! Espera a que el Admin inicie el torneo.</p>
+            <input type="text" id="teamNameInput" placeholder="Team Name">
+            <button onclick="registerTeam()">Register Team</button>
+            <p id="waitMsg" style="display:none; color: var(--hit); font-weight: 600;">Registered! Waiting for admin to start tournament.</p>
         </div>
     </div>
 
     <div id="adminScreen" class="screen">
-        <h1>🎮 Panel Admin</h1>
+        <h1>Admin Panel</h1>
         <div class="card">
             <div class="tournament-table">
-                <h3>🏆 TABLA DEL TORNEO</h3>
-                <div id="tournamentBracket"></div>
+                <h3>Tournament Bracket</h3>
+                <div id="tournamentBracket">No active tournament</div>
             </div>
-            <p style="font-weight: 600; margin-top: 20px;">📋 Equipos registrados:</p>
+            <p style="font-weight: 600; margin-top: 20px;">Registered Teams:</p>
             <div id="teamList"></div>
-            <button id="startBtn" onclick="startTournament()" style="display:none; background: var(--hit)">🎲 Iniciar Torneo</button>
-            <button id="resetBtn" onclick="resetTournament()" style="display:none; background: var(--miss)">🔄 Resetear Torneo</button>
+            <div class="control-buttons">
+                <button id="startBtn" onclick="startTournament()" style="display:none; background: var(--hit)">Start Tournament</button>
+                <button id="resetBtn" onclick="resetTournament()" style="display:none; background: var(--miss)">Reset All</button>
+            </div>
+            <button id="newGameBtn" onclick="forceNewGame()" style="display:none; background: var(--primary)">Force New Match</button>
         </div>
     </div>
 
@@ -182,16 +207,16 @@
                 <div id="t1Display">
                     <div id="name1" style="font-weight: 700;">--</div>
                     <div class="score-box" id="score1">0</div>
-                    <div id="targets1" class="remaining-targets">🎯 Objetivos: 5</div>
+                    <div id="targets1" class="remaining-targets">Targets: 5</div>
                 </div>
                 <div style="font-weight: 900; opacity: 0.3;">VS</div>
                 <div id="t2Display">
                     <div id="name2" style="font-weight: 700;">--</div>
                     <div class="score-box" id="score2">0</div>
-                    <div id="targets2" class="remaining-targets">🎯 Objetivos: 5</div>
+                    <div id="targets2" class="remaining-targets">Targets: 5</div>
                 </div>
             </div>
-            <div id="turnIndicator" style="font-weight: 700; padding: 10px; border-radius: 10px;">ESPERANDO MOVIMIENTO...</div>
+            <div id="turnIndicator" style="font-weight: 700; padding: 10px; border-radius: 10px;">Waiting for move...</div>
         </div>
         <div class="grid" id="gameGrid"></div>
     </div>
@@ -218,44 +243,65 @@
     let myRole = "";
     let teamId = "";
     let currentGame = null;
+    let currentRoomRef = null;
     
     const teamColors = ["#0071e3", "#af52de", "#ff9500", "#ff2d55", "#5856d6", "#34c759", "#ffcc00", "#5ac8fa"];
-    let tournamentData = {
-        rounds: [],
-        winners: [],
-        finalWinner: null
-    };
-
+    
     function setRole(role) {
         room = document.getElementById('roomCode').value.toUpperCase();
-        if(!room) return alert("Ingresa el código de la sala");
+        if(!room) return alert("Please enter a room code");
 
         if(role === 'admin') {
             const pass = document.getElementById('adminKey').value;
-            if(pass !== MASTER_KEY) return alert("Clave de administrador incorrecta");
+            if(pass !== MASTER_KEY) return alert("Invalid admin key");
+            initializeRoom();
         }
 
         myRole = role;
         showScreen(role === 'admin' ? 'adminScreen' : 'teamScreen');
-        if(role === 'team') document.getElementById('displayRoom').innerText = "SALA: " + room;
+        if(role === 'team') document.getElementById('displayRoom').innerText = "Room: " + room;
         if(role === 'admin') loadTournamentHistory();
         listenToRoom();
+    }
+
+    function initializeRoom() {
+        db.ref(`rooms/${room}`).once('value', snap => {
+            if(!snap.exists()) {
+                db.ref(`rooms/${room}`).set({
+                    initialized: true,
+                    createdAt: Date.now()
+                });
+            }
+        });
     }
 
     function registerTeam() {
         const name = document.getElementById('teamNameInput').value;
         if(!name) {
-            alert("Por favor ingresa un nombre para el equipo");
+            alert("Please enter a team name");
             return;
         }
-        teamId = 't_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-        db.ref(`rooms/${room}/teams/${teamId}`).set({ name: name, score: 0, eliminated: false });
+        teamId = 'team_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+        db.ref(`rooms/${room}/teams/${teamId}`).set({ 
+            name: name, 
+            score: 0, 
+            eliminated: false,
+            registeredAt: Date.now()
+        });
         document.getElementById('teamNameInput').style.display = 'none';
         document.getElementById('waitMsg').style.display = 'block';
     }
 
     function listenToRoom() {
-        db.ref(`rooms/${room}/teams`).on('value', snap => {
+        if(currentRoomRef) {
+            Object.values(currentRoomRef).forEach(ref => ref.off());
+        }
+        
+        const teamsRef = db.ref(`rooms/${room}/teams`);
+        const gameRef = db.ref(`rooms/${room}/game`);
+        const tournamentRef = db.ref(`rooms/${room}/tournament`);
+        
+        teamsRef.on('value', snap => {
             const teams = snap.val() || {};
             const list = document.getElementById('teamList');
             if(list) {
@@ -265,7 +311,8 @@
                     const div = document.createElement('div');
                     div.className = "team-item";
                     div.style.background = teamColors[index % teamColors.length];
-                    div.innerText = teams[id].name + (teams[id].eliminated ? " ❌" : " ✅");
+                    const status = teams[id].eliminated ? " (ELIMINATED)" : " (ACTIVE)";
+                    div.innerText = teams[id].name + status;
                     list.appendChild(div);
                     index++;
                 });
@@ -276,15 +323,14 @@
             }
         });
 
-        db.ref(`rooms/${room}/tournament`).on('value', snap => {
+        tournamentRef.on('value', snap => {
             const data = snap.val();
-            if(data) {
-                tournamentData = data;
-                if(myRole === 'admin') loadTournamentHistory();
+            if(data && myRole === 'admin') {
+                loadTournamentHistory();
             }
         });
 
-        db.ref(`rooms/${room}/game`).on('value', snap => {
+        gameRef.on('value', snap => {
             const game = snap.val();
             if(game && game.status === 'playing') {
                 currentGame = game;
@@ -293,6 +339,8 @@
                 checkWinner(game);
             } else if(game && game.status === 'finished') {
                 handleGameFinished(game);
+            } else if(myRole === 'admin' && (!game || game.status === 'finished')) {
+                document.getElementById('newGameBtn').style.display = 'block';
             }
         });
     }
@@ -302,7 +350,7 @@
             const teams = snap.val();
             const activeTeams = Object.keys(teams).filter(id => !teams[id].eliminated);
             if(activeTeams.length < 2) {
-                alert("Necesitas al menos 2 equipos activos");
+                alert("Need at least 2 active teams");
                 return;
             }
             
@@ -311,14 +359,21 @@
             const team2 = shuffled[1];
             
             const newTournament = {
-                rounds: [[{ team1: team1, team2: team2, winner: null, team1Name: teams[team1].name, team2Name: teams[team2].name }]],
+                rounds: [[{ 
+                    team1: team1, 
+                    team2: team2, 
+                    winner: null, 
+                    team1Name: teams[team1].name, 
+                    team2Name: teams[team2].name 
+                }]],
                 winners: [],
-                finalWinner: null
+                finalWinner: null,
+                startedAt: Date.now()
             };
             
             db.ref(`rooms/${room}/tournament`).set(newTournament);
-            
             startMatch(team1, team2, teams);
+            document.getElementById('startBtn').style.display = 'none';
         });
     }
 
@@ -339,7 +394,8 @@
             hits: {},
             misses: {},
             ships: ships,
-            round: tournamentData.rounds.length
+            round: 1,
+            startedAt: Date.now()
         });
     }
 
@@ -353,19 +409,19 @@
         document.getElementById('name2').innerText = game.t2.name;
         document.getElementById('score1').innerText = game.score1 || 0;
         document.getElementById('score2').innerText = game.score2 || 0;
-        document.getElementById('targets1').innerHTML = `🎯 Objetivos restantes: ${remainingTargets1}`;
-        document.getElementById('targets2').innerHTML = `🎯 Objetivos restantes: ${remainingTargets2}`;
+        document.getElementById('targets1').innerHTML = `Targets left: ${remainingTargets1}`;
+        document.getElementById('targets2').innerHTML = `Targets left: ${remainingTargets2}`;
         
         const isMyTurn = (teamId === game.turn);
         const turnName = (game.turn === game.t1.id ? game.t1.name : game.t2.name);
         const indicator = document.getElementById('turnIndicator');
         
-        if (isMyTurn) {
-            indicator.innerText = "🎯 ¡TU TURNO!";
+        if (isMyTurn && myRole === 'team') {
+            indicator.innerText = "YOUR TURN!";
             indicator.style.background = "rgba(52,199,89,0.2)";
             indicator.style.color = "var(--hit)";
         } else {
-            indicator.innerText = "⏳ TURNO DE: " + turnName.toUpperCase();
+            indicator.innerText = "TURN: " + turnName.toUpperCase();
             indicator.style.background = "rgba(0,113,227,0.1)";
             indicator.style.color = "var(--primary)";
         }
@@ -375,34 +431,33 @@
         
         grid.innerHTML = "";
         for(let i = 0; i < 25; i++) {
-            const c = document.createElement('div');
-            c.className = "cell";
-            if (game.hits && game.hits[i]) c.classList.add("hit");
-            if (game.misses && game.misses[i]) c.classList.add("miss");
+            const cell = document.createElement('div');
+            cell.className = "cell";
+            if (game.hits && game.hits[i]) cell.classList.add("hit");
+            if (game.misses && game.misses[i]) cell.classList.add("miss");
             
             const row = Math.floor(i / 5);
             const col = i % 5;
-            c.innerText = `${row},${col}`;
+            cell.innerText = `${row},${col}`;
             
             const alreadyPlayed = (game.hits && game.hits[i]) || (game.misses && game.misses[i]);
-            if(alreadyPlayed) c.classList.add("disabled");
+            if(alreadyPlayed) cell.classList.add("disabled");
             
-            c.onclick = (function(index) {
+            cell.onclick = (function(index) {
                 return function() { 
-                    if(isMyTurn && game.status === 'playing' && !alreadyPlayed) {
+                    if(isMyTurn && myRole === 'team' && game.status === 'playing' && !alreadyPlayed) {
                         sendMove(index, game); 
                     } else if(alreadyPlayed) {
-                        alert("⚠️ Ya disparaste en esta posición");
-                    } else if(!isMyTurn) {
-                        alert("⏳ No es tu turno");
+                        alert("Already shot here");
+                    } else if(!isMyTurn && myRole === 'team') {
+                        alert("Not your turn");
                     }
                 };
             })(i);
             
-            grid.appendChild(c);
+            grid.appendChild(cell);
         }
         
-        // Cambiar color de fondo según el equipo
         const gameCard = document.getElementById('gameCard');
         if(game.turn === teamId && myRole === 'team') {
             gameCard.style.background = "rgba(52,199,89,0.1)";
@@ -424,6 +479,7 @@
         updates[`rooms/${room}/game/status`] = 'finished';
         updates[`rooms/${room}/game/winner`] = winnerId;
         updates[`rooms/${room}/game/loser`] = loserId;
+        updates[`rooms/${room}/game/endedAt`] = Date.now();
         
         db.ref().update(updates, () => {
             showWinnerModal(winnerId === game.t1.id ? game.t1.name : game.t2.name);
@@ -436,13 +492,20 @@
         modal.className = 'winner-overlay';
         modal.innerHTML = `
             <div class="winner-card">
-                <h1>🏆 ¡VICTORIA! 🏆</h1>
+                <h1>VICTORY!</h1>
                 <h2>${winnerName}</h2>
-                <p>¡Ha ganado la batalla!</p>
-                <button onclick="this.parentElement.parentElement.remove()">Continuar</button>
+                <p>Has won the battle!</p>
+                <button onclick="closeWinnerModal(this)">Continue</button>
             </div>
         `;
         document.body.appendChild(modal);
+    }
+
+    function closeWinnerModal(button) {
+        button.closest('.winner-overlay').remove();
+        if(myRole === 'admin') {
+            document.getElementById('newGameBtn').style.display = 'block';
+        }
     }
 
     function updateTournamentBracket(winnerId, loserId) {
@@ -453,7 +516,7 @@
             if(tournament) {
                 const currentRound = tournament.rounds[tournament.rounds.length - 1];
                 for(let match of currentRound) {
-                    if(match.team1 === winnerId || match.team2 === winnerId) {
+                    if((match.team1 === winnerId || match.team2 === winnerId) && !match.winner) {
                         match.winner = winnerId;
                         break;
                     }
@@ -462,19 +525,17 @@
                 tournament.winners.push(winnerId);
                 db.ref(`rooms/${room}/tournament`).set(tournament);
                 
-                // Verificar si hay más equipos para la final
                 db.ref(`rooms/${room}/teams`).once('value', teamsSnap => {
                     const teams = teamsSnap.val();
                     const activeTeams = Object.keys(teams).filter(id => !teams[id].eliminated);
                     
                     if(activeTeams.length === 1) {
-                        // Torneo finalizado
                         tournament.finalWinner = activeTeams[0];
                         db.ref(`rooms/${room}/tournament`).set(tournament);
                         showWinnerModal(teams[activeTeams[0]].name);
                         document.getElementById('resetBtn').style.display = 'block';
+                        document.getElementById('newGameBtn').style.display = 'none';
                     } else if(activeTeams.length >= 2 && tournament.winners.length >= 2) {
-                        // Siguiente ronda
                         const nextTeams = tournament.winners.slice(-2);
                         const nextMatch = {
                             team1: nextTeams[0],
@@ -496,9 +557,25 @@
         if(myRole === 'team') {
             setTimeout(() => {
                 showScreen('teamScreen');
-                alert("El juego ha terminado. Esperando siguiente ronda...");
-            }, 2000);
+                alert("Game finished. Waiting for next round...");
+            }, 3000);
         }
+    }
+
+    function forceNewGame() {
+        db.ref(`rooms/${room}/teams`).once('value', snap => {
+            const teams = snap.val();
+            const activeTeams = Object.keys(teams).filter(id => !teams[id].eliminated);
+            
+            if(activeTeams.length >= 2) {
+                const team1 = activeTeams[0];
+                const team2 = activeTeams[1];
+                startMatch(team1, team2, teams);
+                document.getElementById('newGameBtn').style.display = 'none';
+            } else {
+                alert("Need at least 2 active teams to start a new match");
+            }
+        });
     }
 
     function loadTournamentHistory() {
@@ -508,13 +585,13 @@
         db.ref(`rooms/${room}/tournament`).once('value', snap => {
             const tournament = snap.val();
             if(!tournament || !tournament.rounds) {
-                bracketDiv.innerHTML = '<p>No hay torneo en curso</p>';
+                bracketDiv.innerHTML = '<p>No tournament in progress</p>';
                 return;
             }
             
             let html = '';
             tournament.rounds.forEach((round, roundIndex) => {
-                html += `<div class="round"><strong>🏅 Ronda ${roundIndex + 1}</strong>`;
+                html += `<div class="round"><strong>Round ${roundIndex + 1}</strong>`;
                 round.forEach(match => {
                     const winner = match.winner;
                     html += `<div class="match">
@@ -536,7 +613,7 @@
                 db.ref(`rooms/${room}/teams/${tournament.finalWinner}`).once('value', snap => {
                     const winnerTeam = snap.val();
                     html += `<div class="round" style="background: linear-gradient(135deg, #ffd700, #ff8c00); color: white;">
-                        <strong>🏆 CAMPEÓN: ${winnerTeam?.name || '???'} 🏆</strong>
+                        <strong>CHAMPION: ${winnerTeam?.name || '???'}</strong>
                     </div>`;
                     bracketDiv.innerHTML = html;
                 });
@@ -547,18 +624,28 @@
     }
 
     function resetTournament() {
-        if(confirm("¿Resetear todo el torneo? Esto eliminará todos los equipos y el progreso.")) {
-            db.ref(`rooms/${room}`).remove();
-            tournamentData = { rounds: [], winners: [], finalWinner: null };
-            document.getElementById('resetBtn').style.display = 'none';
-            document.getElementById('startBtn').style.display = 'none';
-            alert("Torneo reseteado");
+        if(confirm("WARNING: This will delete ALL teams and tournament progress. Are you sure?")) {
+            db.ref(`rooms/${room}`).remove().then(() => {
+                setTimeout(() => {
+                    initializeRoom();
+                    tournamentData = { rounds: [], winners: [], finalWinner: null };
+                    document.getElementById('resetBtn').style.display = 'none';
+                    document.getElementById('startBtn').style.display = 'none';
+                    document.getElementById('newGameBtn').style.display = 'none';
+                    document.getElementById('tournamentBracket').innerHTML = '<p>No active tournament</p>';
+                    document.getElementById('teamList').innerHTML = '';
+                    alert("Tournament has been reset completely");
+                }, 500);
+            }).catch(error => {
+                console.error("Reset error:", error);
+                alert("Error resetting tournament. Please try again.");
+            });
         }
     }
 
     function sendMove(idx, game) {
         if ((game.hits && game.hits[idx]) || (game.misses && game.misses[idx])) {
-            alert("¡Ya disparaste aquí!");
+            alert("Already shot here");
             return;
         }
         
@@ -584,6 +671,9 @@
         const screen = document.getElementById(id);
         if (screen) screen.classList.add('active');
     }
+
+    window.closeWinnerModal = closeWinnerModal;
+    window.forceNewGame = forceNewGame;
 </script>
 </body>
 </html>
